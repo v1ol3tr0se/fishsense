@@ -1,0 +1,55 @@
+                           
+██████╗ ███╗   ███╗███████╗
+██╔══██╗████╗ ████║██╔════╝
+██║  ██║██╔████╔██║███████╗
+██║  ██║██║╚██╔╝██║╚════██║
+██████╔╝██║ ╚═╝ ██║███████║
+╚═════╝ ╚═╝     ╚═╝╚══════╝
+
+dms is the DankMaterialShell management CLI and backend server.
+
+Usage:
+  dms [flags]
+
+Available Commands:
+  auth                  Manage DMS authentication sync
+  backup                Backup and restore DMS configuration
+  blur                  Background blur utilities
+  brightness            Control device brightness
+  chroma                Syntax highlight source code
+  clipboard             Manage clipboard
+  color                 Color utilities
+  completion            Generate the autocompletion script for the specified shell
+  config                Configuration utilities
+  dank16                Generate Base16 color palettes
+  debug-srv             Start the debug server
+  dl                    Download a URL to stdout or file
+  doctor                Diagnose DMS installation and dependencies
+  dpms                  Control display power management
+  greeter               Deprecated: moved to the standalone dms-greeter binary
+  help                  Help about any command
+  ipc                   Send IPC commands to running DMS shell
+  keybinds              Manage keybinds and cheatsheets
+  kill                  Kill running dms processes
+  matugen               Generate Material Design themes
+  notify                Send a desktop notification
+  open                  Open a file, URL, or resource with an application picker
+  plugins               Manage DMS plugins
+  qr                    Generate QR codes
+  randr                 Query output display information
+  registry              Manage plugin and theme registries
+  restart               Restart the running dms instance
+  run                   Launch dms (backend + UI)
+  screenshot            Capture screenshots
+  setup                 Deploy DMS configurations
+  switch-user           Switch to another active session on this seat
+  system                System operations
+  trash                 Manage the user's trash (XDG Trash spec 1.0)
+  update                Update DankMaterialShell to the latest version
+  version               Show version information
+
+Flags:
+  -c, --config string   Path to a UI config dir (containing shell.qml) to use instead of the embedded UI (env: DMS_SHELL_DIR)
+  -h, --help            help for dms
+
+Use "dms [command] --help" for more information about a command.

@@ -1,0 +1,17 @@
+usage: python3 -m http.server [-h] [--cgi] [-b ADDRESS] [-d DIRECTORY] [-p VERSION] [--tls-cert PATH] [--tls-key PATH] [--tls-password-file PATH] [port]
+
+positional arguments:
+  port                  bind to this port (default: 8000)
+
+options:
+  -h, --help            show this help message and exit
+  --cgi                 run as CGI server
+  -b, --bind ADDRESS    bind to this address (default: all interfaces)
+  -d, --directory DIRECTORY
+                        serve this directory (default: current directory)
+  -p, --protocol VERSION
+                        conform to this HTTP version (default: HTTP/1.0)
+  --tls-cert PATH       path to the TLS certificate chain file
+  --tls-key PATH        path to the TLS key file
+  --tls-password-file PATH
+                        path to the password file for the TLS key

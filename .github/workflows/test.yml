@@ -1,0 +1,31 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.10', '3.x']
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install fish 4
+        run: |
+          sudo add-apt-repository -y ppa:fish-shell/release-4
+          sudo apt-get install -y fish ffmpeg libimage-exiftool-perl
+          fish --version
+      - name: fish -n
+        run: git ls-files -z '*.fish' | xargs -0 -n1 fish -n
+      - name: fish_indent
+        run: git ls-files -z '*.fish' | xargs -0 fish_indent --check
+      - name: ruff
+        run: pip install ruff && ruff check .
+      - name: unittest
+        run: python -m unittest discover -s tests

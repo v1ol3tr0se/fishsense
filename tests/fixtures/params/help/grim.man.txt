@@ -1,0 +1,51 @@
+grim(1)                                                                                 General Commands Manual                                                                                 grim(1)
+
+NAME
+     grim - grab images from a Wayland compositor
+
+SYNOPSIS
+     grim [options...] [output-file]
+
+DESCRIPTION
+     grim  is a command-line utility to take screenshots of Wayland desktops. For now it requires support for the screencopy protocol to work. Support for the xdg-output protocol is optional, but im-
+     proves fractional scaling support.
+
+     grim will write an image to output-file, or to a timestamped file name in $GRIM_DEFAULT_DIR if not specified. If $GRIM_DEFAULT_DIR is not set, it falls back first to $XDG_PICTURES_DIR  and  then
+     to the current working directory. If output-file is -, grim will write the image to the standard output instead.
+
+OPTIONS
+     -h
+         Show help message and quit.
+
+     -s <factor>
+         Set the output image's scale factor to factor. By default, the scale factor is set to the highest of all outputs.
+
+     -g "<x>,<y> <width>x<height>"
+         Set the region to capture, in layout coordinates.
+
+         If set to -, read the region from the standard input instead.
+
+     -t <type>
+         Set the output image's file format to type. By default, the filetype is set to png, valid values are png, jpeg or ppm.
+
+     -q <quality>
+         Set the output jpeg's filetype compression rate to quality. By default, the jpeg quality is 80, valid values are between 0-100.
+
+     -l <level>
+         Set  the  output  PNG's  filetype compression level to level. By default, the PNG compression level is 6 on a scale from 0 to 9. Level 9 gives the highest compression ratio, but may be slow;
+         level 1 gives a lower compression ratio, but is faster. Level 0 does no compression at all, and produces very large files; it can be useful when grim is used in a pipeline  with  other  com-
+         mands.
+
+     -o <output>
+         Set the output name to capture.
+
+     -c
+         Include cursors in the screenshot.
+
+     -T <identifier>
+         Set the identifier of a foreign toplevel handle to capture.
+
+AUTHORS
+     Maintained by Simon Ser <contact@emersion.fr>, who is assisted by other open-source contributors. For more information about grim development, see <https://gitlab.freedesktop.org/emersion/grim>.
+
+                                                                                               2025-08-05                                                                                       grim(1)

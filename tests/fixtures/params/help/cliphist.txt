@@ -1,0 +1,15 @@
+usage:
+  $ cliphist <store|list|decode|delete|delete-query|wipe|version>
+options:
+  -config-path (default /home/user/.config/cliphist/config)
+    overwrite config path to use instead of cli flags
+  -db-path (default /home/user/.cache/cliphist/db)
+    path to db
+  -max-dedupe-search (default 100)
+    maximum number of last items to look through when finding duplicates
+  -max-items (default 750)
+    maximum number of items to store
+  -min-store-length (default 0)
+    minimum number of characters to store
+  -preview-width (default 100)
+    maximum number of characters to preview
