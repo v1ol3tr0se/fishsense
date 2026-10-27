@@ -7,6 +7,7 @@ Each scenario builds its own world under a temp dir (HOME, XDG_*): copies your ~
 (config.fish, conf.d, functions, completions) and starship.toml, installs the repo the way fisher does and
 seeds a test history and context log. Your real config and history are only read.
 """
+
 import argparse
 import itertools
 import json
@@ -40,7 +41,7 @@ DAY = 86400
 MODEL = 'qwen2.5-coder:3b'
 PASS_ENV = ('PATH', 'LANG', 'LC_ALL', 'LC_CTYPE', 'LC_MESSAGES', 'USER', 'LOGNAME', 'TZ')
 
-E2E_CONF = r'''status is-interactive; or exit
+E2E_CONF = r"""status is-interactive; or exit
 set -g fish_color_autosuggestion ff00af
 set -q fish_private_mode; or set -g fishsense_ai_autospace 0
 set -q fish_private_mode; or set -g fishsense_ai_model qwen2.5-coder:3b
@@ -63,15 +64,26 @@ function __e2e_dump --on-signal SIGUSR2
         echo '<e2e-end>'
     end >$XDG_RUNTIME_DIR/e2e/$fish_pid.state
 end
-'''
+"""
 
 FAKE_BIN = '#!/bin/sh\nprintf \'%s\\n\' "${0##*/} $*" >>"${0%/*}/../marks"\n'
 FAKE_CMDS = ('fakeapp', 'faketrace', 'fsbuild', 'fsdeploy', 'fsdiff', 'zqfoo', 'zqfob')
 
 HISTORY = [
-    'rm old-notes.txt', 'rm build.log', 'git status', 'git log --oneline', 'ls', 'fakeapp launch',
-    'fsbuild', 'fsdeploy --prod', 'echo del-keep-e2e', 'echo paste-seeded-e2e', 'echo vi-seeded-e2e',
-    'fsdiff --stat', 'faketrace record', 'echo del-me-e2e',
+    'rm old-notes.txt',
+    'rm build.log',
+    'git status',
+    'git log --oneline',
+    'ls',
+    'fakeapp launch',
+    'fsbuild',
+    'fsdeploy --prod',
+    'echo del-keep-e2e',
+    'echo paste-seeded-e2e',
+    'echo vi-seeded-e2e',
+    'fsdiff --stat',
+    'faketrace record',
+    'echo del-me-e2e',
 ]
 
 
@@ -97,8 +109,7 @@ def wait_until(pred, what, timeout=5.0, interval=0.03):
 
 
 def tmux(*args, check=True):
-    return subprocess.run(['tmux', '-L', SOCK, '-f', '/dev/null', *args],
-                          capture_output=True, text=True, check=check).stdout
+    return subprocess.run(['tmux', '-L', SOCK, '-f', '/dev/null', *args], capture_output=True, text=True, check=check).stdout
 
 
 def dead_host():
@@ -117,7 +128,7 @@ def _fg(fg, params):
             fg = None
         elif p == '38' and i + 1 < len(ps):
             n = 5 if ps[i + 1] == '2' else 3
-            fg, i = ';'.join(ps[i:i + n]), i + n - 1
+            fg, i = ';'.join(ps[i : i + n]), i + n - 1
         elif p.isdigit() and (30 <= int(p) <= 37 or 90 <= int(p) <= 97):
             fg = p
         i += 1
@@ -130,7 +141,7 @@ def ghost_text(raw):
     out, fg, pos = [], None, 0
     for m in re.finditer(r'\x1b\[([0-9;:]*)m', raw):
         if fg in GHOST_FG:
-            out.append(raw[pos:m.start()])
+            out.append(raw[pos : m.start()])
         fg, pos = _fg(fg, m.group(1)), m.end()
     if fg in GHOST_FG:
         out.append(raw[pos:])
@@ -174,8 +185,7 @@ class FakeOllama:
                 text, delay = next(((r[1], r[2:]) for r in outer.replies if r[0] in raw), ('echo no-reply-e2e', ()))
                 time.sleep(delay[0] if delay else 0)
                 if self.path == '/api/chat':
-                    return self.reply({'model': body.get('model'), 'done': True,
-                                       'message': {'role': 'assistant', 'content': text}})
+                    return self.reply({'model': body.get('model'), 'done': True, 'message': {'role': 'assistant', 'content': text}})
                 self.reply({'error': 'not found'}, 404)
 
         self.srv = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
@@ -193,16 +203,28 @@ class Env:
     def __init__(self, plugin=True):
         r = self.root = Path(tempfile.mkdtemp(prefix='fishsense-e2e-'))
         self.home, self.config, self.data, self.cache, self.run, self.bin = (
-            r / n for n in ('home', 'config', 'data', 'cache', 'run', 'bin'))
+            r / n for n in ('home', 'config', 'data', 'cache', 'run', 'bin')
+        )
         self.fish_conf = self.config / 'fish'
         self.fish_data = self.data / 'fish'
         self.real_hist = self.fish_data / 'fish_history'
         self.log = self.data / 'fishsense' / 'log.tsv'
         self.proj, self.other, self.work, self.repo, self.pager = (
-            self.home / n for n in ('Projects/app', 'other', 'work', 'repo', 'pager'))
+            self.home / n for n in ('Projects/app', 'other', 'work', 'repo', 'pager')
+        )
         self.shells, self.closers, self.extra = [], [], {'OLLAMA_HOST': dead_host()}
-        for d in (self.fish_conf, self.fish_data, self.cache / 'fish' / 'generated_completions', self.run / 'e2e',
-                  self.bin, self.proj, self.other, self.work, self.repo, self.pager):
+        for d in (
+            self.fish_conf,
+            self.fish_data,
+            self.cache / 'fish' / 'generated_completions',
+            self.run / 'e2e',
+            self.bin,
+            self.proj,
+            self.other,
+            self.work,
+            self.repo,
+            self.pager,
+        ):
             d.mkdir(parents=True, exist_ok=True)
         self.run.chmod(0o700)
         self._copy_user_config()
@@ -218,8 +240,7 @@ class Env:
             shutil.copy(src / 'config.fish', self.fish_conf)
         for d in ('conf.d', 'functions', 'completions'):
             if (src / d).is_dir():
-                shutil.copytree(src / d, self.fish_conf / d, ignore=skip, dirs_exist_ok=True,
-                                ignore_dangling_symlinks=True)
+                shutil.copytree(src / d, self.fish_conf / d, ignore=skip, dirs_exist_ok=True, ignore_dangling_symlinks=True)
             (self.fish_conf / d).mkdir(exist_ok=True)
         if (USER_CONFIG / 'starship.toml').is_file():
             shutil.copy(USER_CONFIG / 'starship.toml', self.config / 'starship.toml')
@@ -229,8 +250,7 @@ class Env:
     def _install(self):
         for d in ('functions', 'conf.d', 'completions'):
             if (REPO / d).is_dir():
-                shutil.copytree(REPO / d, self.fish_conf / d, dirs_exist_ok=True,
-                                ignore=shutil.ignore_patterns('__pycache__'))
+                shutil.copytree(REPO / d, self.fish_conf / d, dirs_exist_ok=True, ignore=shutil.ignore_patterns('__pycache__'))
 
     def _fixture(self):
         for name in FAKE_CMDS:
@@ -240,16 +260,21 @@ class Env:
         for f in ('pager/pagerA-one.txt', 'pager/pagerA-two.txt', 'work/target.txt'):
             (self.home / f).write_text('e2e\n')
         subprocess.run(['git', 'init', '-q', str(self.repo)], env=self.env(), check=True)
-        self.real_hist.write_text(''.join(
-            f'- cmd: {common.escape_hist(c)}\n  when: {NOW - (len(HISTORY) - i) * 600}\n'
-            for i, c in enumerate(HISTORY)))
+        self.real_hist.write_text(
+            ''.join(f'- cmd: {common.escape_hist(c)}\n  when: {NOW - (len(HISTORY) - i) * 600}\n' for i, c in enumerate(HISTORY))
+        )
         common.write_log(self._log_fixture(), self.log)
         seed_tldr(self.cache / 'fishsense' / 'tldr')
         self._check_fakes()
 
     def _check_fakes(self):
-        out = subprocess.run(['fish', '-c', 'for c in $argv; command -s $c; or echo missing:$c; end', *FAKE_CMDS],
-                             env=self.env(), capture_output=True, text=True, timeout=30).stdout.split()
+        out = subprocess.run(
+            ['fish', '-c', 'for c in $argv; command -s $c; or echo missing:$c; end', *FAKE_CMDS],
+            env=self.env(),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        ).stdout.split()
         bad = [o for o in out if Path(o).parent != self.bin]
         if bad:
             shutil.rmtree(self.root, ignore_errors=True)
@@ -279,9 +304,15 @@ class Env:
     def env(self, **extra):
         e = {k: v for k in PASS_ENV if (v := os.environ.get(k))}
         e.setdefault('LANG', 'C.UTF-8')
-        e.update(HOME=str(self.home), XDG_CONFIG_HOME=str(self.config), XDG_DATA_HOME=str(self.data),
-                 XDG_CACHE_HOME=str(self.cache), XDG_RUNTIME_DIR=str(self.run), TERM='tmux-256color',
-                 PATH=f'{self.bin}:{os.environ.get("PATH", "/usr/bin")}')
+        e.update(
+            HOME=str(self.home),
+            XDG_CONFIG_HOME=str(self.config),
+            XDG_DATA_HOME=str(self.data),
+            XDG_CACHE_HOME=str(self.cache),
+            XDG_RUNTIME_DIR=str(self.run),
+            TERM='tmux-256color',
+            PATH=f'{self.bin}:{os.environ.get("PATH", "/usr/bin")}',
+        )
         if (self.config / 'starship.toml').is_file():
             e['STARSHIP_CONFIG'] = str(self.config / 'starship.toml')
         e.update(self.extra)
@@ -358,6 +389,7 @@ class Env:
 def seed_tldr(dest):
     """Fixture pages in params.py's cache layout (<lang>/<platform>/<cmd>.md), index built by params itself."""
     import params
+
     shutil.copytree(FIXTURES / 'tldr', dest, dirs_exist_ok=True)
     params.build_index(dest)
 
@@ -417,8 +449,7 @@ class Shell:
         else:
             raise Fail('fish did not answer SIGUSR2 (is it busy?)')
         cursor, paging, session, probe, buf = text.removesuffix(end).split('\n', 4)
-        return {'cursor': int(cursor), 'paging': paging == '1', 'session': session, 'probe': int(probe),
-                'buffer': buf[:-1]}
+        return {'cursor': int(cursor), 'paging': paging == '1', 'session': session, 'probe': int(probe), 'buffer': buf[:-1]}
 
     def buffer(self):
         return self.state()['buffer']
@@ -506,8 +537,10 @@ def executed_lands_in_real(env):
     sh.settle(lambda: '‹' in sh.ghost(), 4)
     sh.send('C-c')
     sh.run('echo real-e2e')
-    items = sh.wait(lambda: (h := env.real_history())[-2:] == ['fakeapp launch', 'echo real-e2e'] and h,
-                    lambda: f'real history ends with {env.real_history()[-3:]}')
+    items = sh.wait(
+        lambda: (h := env.real_history())[-2:] == ['fakeapp launch', 'echo real-e2e'] and h,
+        lambda: f'real history ends with {env.real_history()[-3:]}',
+    )
     extra = set(items) - set(seeded) - {'echo real-e2e'}
     check(not extra, f'synthetic items in the real history: {sorted(extra)}')
     check(env.marks()[-1:] == ['fakeapp launch'], f'fakeapp launch did not run: {env.marks()}')
@@ -554,12 +587,12 @@ def fzf_ctrl_r(env):
     sh.run('echo fzf-newest-e2e')
     time.sleep(1.2)
     sh.send('C-r')
-    rows = sh.wait(lambda: re.findall(r'\d\d-\d\d \d\d:\d\d:\d\d │ (.*?)\s*│?\s*$', sh.screen(), re.M),
-                   'fzf did not show the history list')
+    rows = sh.wait(
+        lambda: re.findall(r'\d\d-\d\d \d\d:\d\d:\d\d │ (.*?)\s*│?\s*$', sh.screen(), re.M), 'fzf did not show the history list'
+    )
     check(rows[0] == 'echo fzf-newest-e2e', f'first fzf row: {rows[0]!r}')
     real = set(env.real_history())
-    check(all(r in real for r in rows), f'fzf lists things that are not in the real history: '
-          f'{[r for r in rows if r not in real]}')
+    check(all(r in real for r in rows), f'fzf lists things that are not in the real history: {[r for r in rows if r not in real]}')
     sh.send('Escape')
     sh.wait(lambda: 'History>' not in sh.screen(), 'fzf did not close')
     sh.wait_buffer('')
@@ -570,8 +603,7 @@ def shift_delete(env):
     """shift-delete removes the visible suggestion from the real history too."""
     sh = env.shell(env.work)
     sh.type('echo del-')
-    shown = sh.wait(lambda: (g := sh.ghost()) in ('me-e2e', 'keep-e2e') and g,
-                    lambda: f'no ghost for echo del- ({sh.ghost()!r})')
+    shown = sh.wait(lambda: (g := sh.ghost()) in ('me-e2e', 'keep-e2e') and g, lambda: f'no ghost for echo del- ({sh.ghost()!r})')
     gone, kept = 'echo del-' + shown, 'echo del-' + ({'me-e2e', 'keep-e2e'} - {shown}).pop()
     sh.send('S-DC')
     sh.wait(lambda: gone not in env.real_history(), f'{gone!r} is still in the real history')
@@ -635,8 +667,10 @@ def generated_completions(env):
     sh.wait_buffer('')
     sh.type('waifu2x-ncnn-vulkan -s ')
     sh.send('Tab')
-    sh.wait(lambda: all(re.search(rf'(^|\s){v}(\s|$)', sh.screen(), re.M) for v in ('16', '32')),
-            'Tab after -s does not offer the values 16/32')
+    sh.wait(
+        lambda: all(re.search(rf'(^|\s){v}(\s|$)', sh.screen(), re.M) for v in ('16', '32')),
+        'Tab after -s does not offer the values 16/32',
+    )
 
 
 @scenario
@@ -645,7 +679,7 @@ def placeholder_trim(env):
     sh = env.shell(env.work)
     sh.type('tar ')
     g = sh.wait(lambda: '‹' in (g := sh.ghost()) and g, lambda: f'no ghost with ‹…›: {sh.ghost()!r}', 8)
-    want = 'tar ' + g[:g.index('‹')]
+    want = 'tar ' + g[: g.index('‹')]
     sh.send('Right')
     sh.wait_buffer(want)
     check(sh.state()['cursor'] == len(want), 'the cursor did not stop before the placeholder')
@@ -669,8 +703,9 @@ def autocorrect_fix(env):
     sh.wait(lambda: env.real_history()[-1:] == ['git status'], 'git status is not last in the real history')
     check('corrected from' not in sh.screen(), 'the correction notice showed up')
     check('gti status' not in env.real_history(), 'the mistyped line stayed in the history')
-    last = sh.wait(lambda: (r := env.log_recs()) and r[-1].pid == sh.pid and r[-1],
-                   lambda: f'last log record: {env.log_recs()[-1:]}')
+    last = sh.wait(
+        lambda: (r := env.log_recs()) and r[-1].pid == sh.pid and r[-1], lambda: f'last log record: {env.log_recs()[-1:]}'
+    )
     check((last.cmd, last.status) == ('git status', 0), f'last log record: {last}')
 
 
@@ -713,8 +748,10 @@ def destructive_ask_yes(env):
     sh.wait_prompt(n + 1)
     check(not (env.work / 'target.txt').exists(), 'rm target.txt did not run')
     sh.run('echo after-ask-e2e')
-    sh.wait(lambda: env.real_history()[-2:] == ['rm target.txt', 'echo after-ask-e2e'],
-            lambda: f'real history ends with {env.real_history()[-3:]}')
+    sh.wait(
+        lambda: env.real_history()[-2:] == ['rm target.txt', 'echo after-ask-e2e'],
+        lambda: f'real history ends with {env.real_history()[-3:]}',
+    )
 
 
 @scenario
@@ -810,6 +847,7 @@ def ai_warms_after_use(env):
     """Once ctrl-space was used, each new prompt has ollama read the directory ahead (a 1-token request).
     On battery there is no warm-up at all, so the last check flips."""
     import ai
+
     battery = ai.on_battery()
     fake = env.fake_ollama([('warm-e2e', 'echo warm-e2e done')])
     sh = env.shell(env.work, OLLAMA_HOST=fake.host)
@@ -828,8 +866,10 @@ def ai_warms_after_use(env):
         return
     sh.wait(lambda: len(fake.requests) > n, 'no warm-up after the next command', 8)
     body = fake.requests[-1][1]
-    check(body.get('options', {}).get('num_predict') == 1 and 'line:' not in json.dumps(body['messages'][-1]),
-          f'warm-up request: {body}')
+    check(
+        body.get('options', {}).get('num_predict') == 1 and 'line:' not in json.dumps(body['messages'][-1]),
+        f'warm-up request: {body}',
+    )
 
 
 @scenario
@@ -848,6 +888,7 @@ def ai_autospace(env):
     """With fishsense_ai_autospace on and plugged in, a space asks the AI in the background: a concrete
     ghost appears on its own, no ctrl-space. It only ever extends the line (a ghost), never replaces it."""
     import ai
+
     if ai.on_battery():
         return
     fake = env.fake_ollama([('waifu2x -i a-e2e.png', 'waifu2x -i a-e2e.png -o a-e2e_2x.png -s 2')])
@@ -906,9 +947,14 @@ def signal_storm(env):
     sh.ranked()
     sh.type('echo ali')
     res = env.run / 'fishsense' / f'{sh.pid}.result'
-    junk = ['', 'garbage without tabs\n', f'ghost\te2e-stale\t{common.enc("echo alivejunk-e2e")}\n',
-            f'ghost\te2e-stale\t{common.enc("echo injected-e2e")}\n', 'ranked\te2e\t\n',
-            f'compgen\te2e\t{common.enc(str(env.root / "no-such.fish"))}\n']
+    junk = [
+        '',
+        'garbage without tabs\n',
+        f'ghost\te2e-stale\t{common.enc("echo alivejunk-e2e")}\n',
+        f'ghost\te2e-stale\t{common.enc("echo injected-e2e")}\n',
+        'ranked\te2e\t\n',
+        f'compgen\te2e\t{common.enc(str(env.root / "no-such.fish"))}\n',
+    ]
     for i in range(200):
         if i % 10 == 0:
             common.write_atomic(res, junk[i // 10 % len(junk)])
@@ -988,10 +1034,12 @@ def named_session_back(env):
 def should_add_sees_typing_cwd(env):
     """fish_should_add_to_history judges with the cwd the line was typed in, not the one after."""
     (env.home / 'secret').mkdir()
-    env.add_config('function fish_should_add_to_history\n'
-                   '    string match -q "$HOME/secret*" -- $PWD; and return 1\n'
-                   "    string match -q ' *' -- \"$argv\"; and return 1\n"
-                   '    return 0\nend')
+    env.add_config(
+        'function fish_should_add_to_history\n'
+        '    string match -q "$HOME/secret*" -- $PWD; and return 1\n'
+        '    string match -q \' *\' -- "$argv"; and return 1\n'
+        '    return 0\nend'
+    )
     sh = env.shell(env.home)
     sh.ranked()
     for c in ('cd ~/secret', 'echo classified-e2e', 'cd ~', 'echo after-e2e'):
@@ -1004,9 +1052,11 @@ def should_add_sees_typing_cwd(env):
 @scenario
 def fallback_keeps_what_the_filter_keeps(env):
     """An execute from another plugin: what the user's fish_should_add_to_history accepts reaches the real history."""
-    env.add_config('function fish_should_add_to_history\n'
-                   "    string match -qr '^mysql' -- $argv; and return 1\n    return 0\nend\n"
-                   'function zqrun_line; commandline -f execute; end\nbind ctrl-o zqrun_line')
+    env.add_config(
+        'function fish_should_add_to_history\n'
+        "    string match -qr '^mysql' -- $argv; and return 1\n    return 0\nend\n"
+        'function zqrun_line; commandline -f execute; end\nbind ctrl-o zqrun_line'
+    )
     sh = env.shell(env.work)
     sh.ranked()
     n = sh.prompts()
@@ -1109,7 +1159,8 @@ def subcommands_fresh(env):
     subs = env.home / 'fsnpm-subs'
     subs.write_text('install\nuninstall\nls\n')
     (env.fish_conf / 'completions' / 'fsnpm.fish').write_text(
-        "complete -c fsnpm -f\ncomplete -c fsnpm -n __fish_use_subcommand -a '(cat ~/fsnpm-subs)'\n")
+        "complete -c fsnpm -f\ncomplete -c fsnpm -n __fish_use_subcommand -a '(cat ~/fsnpm-subs)'\n"
+    )
     a, b = env.home / 'proj-a', env.home / 'proj-b'
     (a / 'install').mkdir(parents=True)
     b.mkdir()
@@ -1192,8 +1243,7 @@ def long_line_quiet(env):
 @scenario
 def git_alias_asks(env):
     """A correction that lands on a git alias (wipe = reset --hard) asks before running."""
-    (env.home / '.gitconfig').write_text('[user]\n\tname = e2e\n\temail = e2e@example.invalid\n'
-                                         '[alias]\n\twipe = reset --hard\n')
+    (env.home / '.gitconfig').write_text('[user]\n\tname = e2e\n\temail = e2e@example.invalid\n[alias]\n\twipe = reset --hard\n')
     notes = env.repo / 'notes.txt'
     notes.write_text('v1\n')
     for args in (['add', 'notes.txt'], ['commit', '-qm', 'v1']):
@@ -1220,8 +1270,9 @@ def command_abbr_kept(env):
     sh.ranked()
     sh.run('git lg')
     check('corrected' not in sh.screen(), 'corrected the abbreviation as if it were a typo')
-    sh.wait(lambda: env.real_history()[-1:] == ['git log --oneline -1'],
-            lambda: f'real history ends with {env.real_history()[-2:]}')
+    sh.wait(
+        lambda: env.real_history()[-1:] == ['git log --oneline -1'], lambda: f'real history ends with {env.real_history()[-2:]}'
+    )
 
 
 @scenario
@@ -1277,6 +1328,7 @@ def argv_private(env):
                 except OSError:
                     pass
             time.sleep(0.002)
+
     t = threading.Thread(target=poll, daemon=True)
     t.start()
     try:
@@ -1434,15 +1486,16 @@ def unwritable_files_quiet(env):
     sh.wait(lambda: env.real_history()[-1:] == ['git status'], 'did not fix git stauts')
     time.sleep(0.5)
     screen = sh.screen()
-    check(not any(w in screen for w in ('warning:', 'Permission denied', 'No space left')),
-          f'errors on screen:\n{screen}')
+    check(not any(w in screen for w in ('warning:', 'Permission denied', 'No space left')), f'errors on screen:\n{screen}')
 
 
 @scenario
 def alt_s_prepends_last_command(env):
     """alt-s on an empty line prepends sudo to the last command run, not to the best-ranked one."""
-    check(any(shutil.which(c, path=env.env()['PATH']) for c in ('sudo', 'doas', 'please', 'run0')),
-          'no sudo/doas/please/run0; the scenario does not apply')
+    check(
+        any(shutil.which(c, path=env.env()['PATH']) for c in ('sudo', 'doas', 'please', 'run0')),
+        'no sudo/doas/please/run0; the scenario does not apply',
+    )
     sh = env.shell(env.repo)
     sh.ranked()
     sh.run('git log --oneline >/dev/null 2>&1')
@@ -1474,8 +1527,13 @@ def fish_c_off_on(env):
     for cmd, want in (('fishsense off', 'off'), ('fishsense on', 'on')):
         r = subprocess.run(['fish', '-c', cmd], env=env.env(), capture_output=True, text=True, timeout=30)
         check(r.returncode == 0, f'{cmd}: exits {r.returncode}: {r.stderr.strip()}')
-        r = subprocess.run(['fish', '-c', 'set -q fishsense_disabled; and echo off; or echo on'], env=env.env(),
-                           capture_output=True, text=True, timeout=30)
+        r = subprocess.run(
+            ['fish', '-c', 'set -q fishsense_disabled; and echo off; or echo on'],
+            env=env.env(),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
         check(r.stdout.strip() == want, f'after {cmd}: {r.stdout.strip()}')
 
 
@@ -1498,9 +1556,11 @@ def tool_added_to_path_later(env):
     sh.wait(comp.exists, f'{comp} was not generated', timeout=8)
 
 
-PLUGIN_PROBES = ('functions --handlers | string match -e __fishsense',
-                 "bind -a | string match -v '#*' | string match -e __fishsense",
-                 "set -n | string match -r '^_*fishsense'")
+PLUGIN_PROBES = (
+    'functions --handlers | string match -e __fishsense',
+    "bind -a | string match -v '#*' | string match -e __fishsense",
+    "set -n | string match -r '^_*fishsense'",
+)
 
 
 @scenario
@@ -1529,8 +1589,9 @@ def _median_run(env, argv, n=10):
 def fish_c_untouched(env):
     """fish -c touches nothing of the plugin and stays just as fast."""
     before = env.plugin_files()
-    out = subprocess.run(['fish', '-c', '; '.join(PLUGIN_PROBES) + '; true'], env=env.env(), cwd=env.work,
-                         capture_output=True, text=True, timeout=30)
+    out = subprocess.run(
+        ['fish', '-c', '; '.join(PLUGIN_PROBES) + '; true'], env=env.env(), cwd=env.work, capture_output=True, text=True, timeout=30
+    )
     check(out.stdout.strip() == '' and out.stderr.strip() == '', f'fish -c sees the plugin: {out.stdout}{out.stderr}')
     check(env.plugin_files() == before, 'fish -c wrote plugin files')
     base = env.sibling(plugin=False)

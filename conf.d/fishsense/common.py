@@ -1,4 +1,5 @@
 """Shared helpers: paths, url codec, sanitizing, fish history and context-log readers."""
+
 import functools
 import os
 import re
@@ -167,8 +168,7 @@ def read_log(path=None):
 
 
 def write_log(recs, path=None, ok=None):
-    write_atomic(path or log_path(), ''.join(
-        f'{r.when}\t{r.pid}\t{r.status}\t{enc(r.cwd)}\t{enc(r.cmd)}\n' for r in recs), ok)
+    write_atomic(path or log_path(), ''.join(f'{r.when}\t{r.pid}\t{r.status}\t{enc(r.cwd)}\t{enc(r.cmd)}\n' for r in recs), ok)
 
 
 def notify(pid, kind, req_id, payload=''):
@@ -202,7 +202,7 @@ def pid_alive(pid):
 def gc_shadows(fish_data):
     """Remove shadow histories left behind by shells that died without fish_exit."""
     for p in Path(fish_data).glob('fishsense_*_history'):
-        pid = p.name[len('fishsense_'):-len('_history')]
+        pid = p.name[len('fishsense_') : -len('_history')]
         if pid.isdigit() and not pid_alive(pid):
             p.unlink(missing_ok=True)
 

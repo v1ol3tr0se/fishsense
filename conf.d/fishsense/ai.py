@@ -1,4 +1,5 @@
 """`ai` subcommand: one fish command line from a local ollama model, plus its doctor checks."""
+
 import http.client
 import json
 import os
@@ -38,7 +39,7 @@ SYSTEM = (
     'flags for it or split its name; if you do not know what to add, reply with just the command.'
 )
 
-EXAMPLES = '''\
+EXAMPLES = """\
 cwd: ~/notes
 files: draft.md images/ talk.md talk.pdf
 recent:
@@ -101,7 +102,7 @@ files: logo.png sketch.png
 history:
   waifu2x -i sketch.png -o sketch_2x.png -s 2
 line: waifu2x -i logo.png
-answer: waifu2x -i logo.png -o logo_2x.png -s 2'''
+answer: waifu2x -i logo.png -o logo_2x.png -s 2"""
 SHOTS = [ex.rsplit('\nanswer: ', 1) for ex in EXAMPLES.split('\n\n')]
 
 _open = urllib.request.build_opener(urllib.request.ProxyHandler({})).open
@@ -140,8 +141,7 @@ def on_battery():
 
 
 def history(fish_data, real_name):
-    return [i.cmd for i in common.read_fish_history(common.real_history_path(fish_data, real_name))] \
-        if fish_data else []
+    return [i.cmd for i in common.read_fish_history(common.real_history_path(fish_data, real_name))] if fish_data else []
 
 
 def recent(cwd, hist, n=8):
@@ -158,9 +158,14 @@ def recent(cwd, hist, n=8):
 
 def _git(cwd):
     try:
-        r = subprocess.run(['git', '--no-optional-locks', '-C', cwd, 'status', '--short', '--branch'],
-                           capture_output=True, encoding='utf-8', errors='replace',
-                           stdin=subprocess.DEVNULL, timeout=1)
+        r = subprocess.run(
+            ['git', '--no-optional-locks', '-C', cwd, 'status', '--short', '--branch'],
+            capture_output=True,
+            encoding='utf-8',
+            errors='replace',
+            stdin=subprocess.DEVNULL,
+            timeout=1,
+        )
     except (OSError, subprocess.SubprocessError):
         return []
     return r.stdout.splitlines()[:13] if r.returncode == 0 else []
@@ -168,7 +173,7 @@ def _git(cwd):
 
 def _short(path):
     home = str(Path.home())
-    return '~' + path[len(home):] if path == home or path.startswith(home + '/') else path
+    return '~' + path[len(home) :] if path == home or path.startswith(home + '/') else path
 
 
 def target():
@@ -179,8 +184,14 @@ def target():
     vpn = ''
     if ip:
         try:
-            r = subprocess.run(['ip', '-4', '-br', 'addr'], capture_output=True, encoding='utf-8',
-                               errors='replace', stdin=subprocess.DEVNULL, timeout=1)
+            r = subprocess.run(
+                ['ip', '-4', '-br', 'addr'],
+                capture_output=True,
+                encoding='utf-8',
+                errors='replace',
+                stdin=subprocess.DEVNULL,
+                timeout=1,
+            )
             for name, _, addr, *_ in (ln.split() for ln in r.stdout.splitlines() if ln.split()):
                 if name.startswith(('tun', 'proton')) or 'tun' in name:
                     vpn = addr.split('/')[0]
@@ -293,8 +304,9 @@ def generate(prompt, prefill='', predict=80, timeout=TIMEOUT):
     msgs.append({'role': 'user', 'content': prompt})
     if prefill:
         msgs.append({'role': 'assistant', 'content': prefill})
-    body = json.dumps({'model': model(), 'messages': msgs, 'stream': False, 'think': False,
-                       'keep_alive': KEEP_ALIVE, 'options': opts}).encode()
+    body = json.dumps(
+        {'model': model(), 'messages': msgs, 'stream': False, 'think': False, 'keep_alive': KEEP_ALIVE, 'options': opts}
+    ).encode()
     req = urllib.request.Request(base_url() + '/api/chat', body, {'Content-Type': 'application/json'})
     with _open(req, timeout=timeout) as r:
         r = json.load(r)
@@ -322,7 +334,7 @@ def clean(reply):
 def decide(buffer, reply):
     """(kind, line), or None when the reply adds nothing to what is typed."""
     typed = buffer.lstrip()
-    lead = buffer[:len(buffer) - len(typed)]
+    lead = buffer[: len(buffer) - len(typed)]
     line = clean(reply)
     flat = ' '.join
     if not line or typed.rstrip().startswith(line) or flat(_one(typed).split()).startswith(flat(line.split())):
@@ -393,12 +405,10 @@ def release():
     """A model the GPU still holds from before the laptop was unplugged would keep it awake for the rest of
     keep_alive: unload it, the next ctrl-space loads it on the CPU. (A CPU-only ollama never gets here.)"""
     with _open(base_url() + '/api/ps', timeout=2) as r:
-        held = any(m.get('size_vram') and m.get('name') in (model(), f'{model()}:latest')
-                   for m in json.load(r).get('models', []))
+        held = any(m.get('size_vram') and m.get('name') in (model(), f'{model()}:latest') for m in json.load(r).get('models', []))
     if held:
         body = json.dumps({'model': model(), 'keep_alive': 0}).encode()
-        _open(urllib.request.Request(base_url() + '/api/generate', body, {'Content-Type': 'application/json'}),
-              timeout=5).close()
+        _open(urllib.request.Request(base_url() + '/api/generate', body, {'Content-Type': 'application/json'}), timeout=5).close()
 
 
 def _superseded(pid, my_id):
@@ -440,8 +450,11 @@ def main(sub, argv):
             got = suggest(buffer, build_prompt(cwd, word + ' ', cmds, habits(word + ' ', hist), tgt=tgt, cmd_hint=hint), start=word)
         else:
             mine = habits(typed, hist) if typed.strip() else usual(a.get('--fish-data'), a.get('--pid'), hist)
-            got = suggest(buffer, build_prompt(cwd, typed, cmds, mine, tgt=tgt, cmd_hint=hint),
-                          retry=bool(typed.split()) and runs(typed.split()[0], hist))
+            got = suggest(
+                buffer,
+                build_prompt(cwd, typed, cmds, mine, tgt=tgt, cmd_hint=hint),
+                retry=bool(typed.split()) and runs(typed.split()[0], hist),
+            )
     except (OSError, ValueError, http.client.HTTPException) as e:
         got = None if async_ else (msg := explain(e)) and ('error', msg)
     if got and async_:
@@ -454,8 +467,7 @@ def main(sub, argv):
 
 def doctor_lines():
     m = model()
-    power = 'power: battery (the AI runs on the CPU only)' if on_battery() \
-        else 'power: plugged in (the AI can use the GPU)'
+    power = 'power: battery (the AI runs on the CPU only)' if on_battery() else 'power: plugged in (the AI can use the GPU)'
     try:
         url = base_url()
         with _open(url + '/api/tags', timeout=2) as r:
@@ -463,5 +475,4 @@ def doctor_lines():
     except Exception:
         return [f'ollama: not responding ({os.environ.get("OLLAMA_HOST") or "127.0.0.1:11434"}); {SETUP}', power]
     have = m in names or f'{m}:latest' in names
-    return [f'ollama: responding at {url}',
-            f'AI model: {m} ' + ('installed' if have else f'missing; {SETUP}'), power]
+    return [f'ollama: responding at {url}', f'AI model: {m} ' + ('installed' if have else f'missing; {SETUP}'), power]

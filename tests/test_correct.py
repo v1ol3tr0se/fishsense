@@ -9,17 +9,22 @@ sys.path.insert(0, str(HERE))
 import common
 import correct
 
-KNOWN = {'git', 'gtf', 'ls', 'sh', 'su', 'rm', 'mv', 'vi', 'vim', 'sudo', 'env', 'pacman', 'man', 'cpan',
-         'cat', 'less', 'make'}
+KNOWN = {'git', 'gtf', 'ls', 'sh', 'su', 'rm', 'mv', 'vi', 'vim', 'sudo', 'env', 'pacman', 'man', 'cpan', 'cat', 'less', 'make'}
 GIT_SUBS = {'status', 'stash', 'stage', 'reset', 'rebase', 'restore', 'revert', 'branch', 'push', 'log'}
 USES = {'git': 50, 'ls': 40, 'sh': 2, 'rm': 30, 'mv': 9, 'vi': 1, 'vim': 3, 'pacman': 5, 'status': 9}
 
 
 def run(line, cwd='/nonexistent', uses=USES, known=KNOWN, subs=None, funcs=frozenset(), aliases={}):
     return correct.correct_line(
-        line, cwd, lambda w: w in known or w in funcs, lambda: known | funcs,
+        line,
+        cwd,
+        lambda w: w in known or w in funcs,
+        lambda: known | funcs,
         {'git': GIT_SUBS} if subs is None else subs,
-        lambda names, cmd: {n: uses.get(n, 0) for n in names}, lambda w: False, aliases)
+        lambda names, cmd: {n: uses.get(n, 0) for n in names},
+        lambda w: False,
+        aliases,
+    )
 
 
 class Correct(unittest.TestCase):
@@ -78,10 +83,8 @@ class Correct(unittest.TestCase):
         self.assertIsNone(run('git stauts', subs={}))
         self.assertIsNone(run('git -C x stauts'))
         self.assertIsNone(run('npm x cowsay', subs={'npm': {'i', 'exec', 'install'}}, known=KNOWN | {'npm'}))
-        self.assertIsNone(run('ip addr', subs={'ip': {'address', 'maddress', 'maddr', 'route'}},
-                              known=KNOWN | {'ip'}))
-        self.assertEqual(run('ip roue', subs={'ip': {'address', 'route'}}, known=KNOWN | {'ip'}),
-                         ('fix', 'ip route'))
+        self.assertIsNone(run('ip addr', subs={'ip': {'address', 'maddress', 'maddr', 'route'}}, known=KNOWN | {'ip'}))
+        self.assertEqual(run('ip roue', subs={'ip': {'address', 'route'}}, known=KNOWN | {'ip'}), ('fix', 'ip route'))
         with tempfile.TemporaryDirectory() as d:
             Path(d, 'stauts').touch()
             self.assertIsNone(run('git stauts', cwd=d))
@@ -94,10 +97,30 @@ class Correct(unittest.TestCase):
             self.assertEqual(run('run.sh', known=known), ('fix', 'rungs'))
 
     def test_nothing_to_do(self):
-        for line in ['git status', 'ls -la', 'cat fiel.txt', 'git add fiel.txt', './scirpt.sh',
-                     '/usr/bin/gti', '~/bin/gti', ' gti status', 'FOO=1 gti status', '$EDITOR x',
-                     '(echo gti) status', 'gti$x', 'g*i', 'g{t,i}', "'gti", 'g\\ti status', 'command -v gti',
-                     'x', '42', 'git st$x', '', 'git sta.tus']:
+        for line in [
+            'git status',
+            'ls -la',
+            'cat fiel.txt',
+            'git add fiel.txt',
+            './scirpt.sh',
+            '/usr/bin/gti',
+            '~/bin/gti',
+            ' gti status',
+            'FOO=1 gti status',
+            '$EDITOR x',
+            '(echo gti) status',
+            'gti$x',
+            'g*i',
+            'g{t,i}',
+            "'gti",
+            'g\\ti status',
+            'command -v gti',
+            'x',
+            '42',
+            'git st$x',
+            '',
+            'git sta.tus',
+        ]:
             self.assertIsNone(run(line), line)
 
     def test_prefixes_and_bytes(self):
@@ -118,8 +141,7 @@ class Correct(unittest.TestCase):
         self.assertEqual(run('git pshu'), ('ask', 'git push'))
         self.assertEqual(run('git rsetroee'), ('ask', 'git restore'))
         self.assertEqual(run('fsatfecht', known=KNOWN | {'fastfetch'}, uses={'fastfetch': 4}), ('fix', 'fastfetch'))
-        self.assertEqual(run('sytmeclt stop x', known=KNOWN | {'systemctl'}, uses={'systemctl': 1}),
-                         ('ask', 'systemctl stop x'))
+        self.assertEqual(run('sytmeclt stop x', known=KNOWN | {'systemctl'}, uses={'systemctl': 1}), ('ask', 'systemctl stop x'))
 
     def test_far_fix_only_to_something_used(self):
         known = KNOWN | {'permute', 'fastfetch'}
@@ -141,17 +163,38 @@ class Cli(unittest.TestCase):
                 (bin_ / name).write_text('#!/bin/sh\n')
                 (bin_ / name).chmod(0o755)
             (d / 'fish').mkdir()
-            (d / 'fish' / 'fish_history').write_text(common.format_fish_history(
-                [('git log', ()), ('git status', ())], when=1))
-            env = {'PATH': str(bin_), 'XDG_DATA_HOME': str(d / 'data'), 'XDG_CACHE_HOME': str(d / 'cache'),
-                   'XDG_RUNTIME_DIR': str(d / 'run'), 'HOME': str(d)}
+            (d / 'fish' / 'fish_history').write_text(common.format_fish_history([('git log', ()), ('git status', ())], when=1))
+            env = {
+                'PATH': str(bin_),
+                'XDG_DATA_HOME': str(d / 'data'),
+                'XDG_CACHE_HOME': str(d / 'cache'),
+                'XDG_RUNTIME_DIR': str(d / 'run'),
+                'HOME': str(d),
+            }
             common.write_log([common.LogRec(1, 1, 0, '/', 'git status')], d / 'data' / 'fishsense' / 'log.tsv')
 
             def cli(line, stdin):
                 return subprocess.run(
-                    [sys.executable, '-B', str(HERE / 'fishsense.py'), 'correct', '--cwd', common.enc(str(d)),
-                     '--line', common.enc(line), '--fish-data', str(d / 'fish'), '--real-name', 'fish'],
-                    input=stdin, capture_output=True, text=True, env=env, timeout=10)
+                    [
+                        sys.executable,
+                        '-B',
+                        str(HERE / 'fishsense.py'),
+                        'correct',
+                        '--cwd',
+                        common.enc(str(d)),
+                        '--line',
+                        common.enc(line),
+                        '--fish-data',
+                        str(d / 'fish'),
+                        '--real-name',
+                        'fish',
+                    ],
+                    input=stdin,
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    timeout=10,
+                )
 
             stdin = '#cmds\ncd\nabbr\n#sub git\nstatus\tShow the working tree status\nstash\tStash\n'
             r = cli('gti stauts', stdin)
@@ -160,18 +203,34 @@ class Cli(unittest.TestCase):
             self.assertEqual(cli('ls', '').stdout, '')
             (bin_ / 'nvim').write_text('#!/bin/sh\n')
             (bin_ / 'nvim').chmod(0o755)
-            self.assertEqual(cli('nvm isntall lts', '#sub nvm\ninstall\nuse\n').stdout,
-                             f'fix\t{common.enc("nvm install lts")}\n')
+            self.assertEqual(cli('nvm isntall lts', '#sub nvm\ninstall\nuse\n').stdout, f'fix\t{common.enc("nvm install lts")}\n')
             self.assertEqual(cli('nvm instal lts', '#sub nvm\ninstall\nuse\n').stdout, '')
-            self.assertEqual(cli('nvx instal', '#cmds\ncd\n#funcs\nnvm\n').stdout,
-                             f'fix\t{common.enc("nvm instal")}\n')
+            self.assertEqual(cli('nvx instal', '#cmds\ncd\n#funcs\nnvm\n').stdout, f'fix\t{common.enc("nvm instal")}\n')
             self.assertEqual(cli('gtf', '#cmds\ncd\n#funcs\ncd\ngit\n').stdout, '')
             stdin = '#sub git\nstatus\tShow the working tree status\nwipe\talias: reset --hard…\nwipe\n'
             self.assertEqual(cli('git wpie', stdin).stdout, f'ask\t{common.enc("git wipe")}\n')
-            r = subprocess.run([sys.executable, '-B', str(HERE / 'fishsense.py'), 'correct'],
-                               input=stdin, capture_output=True, text=True, timeout=10, env=dict(env, FISHSENSE_ARGS='\x1f'.join(
-                                   ['--cwd', common.enc(str(d)), '--line', common.enc('git stauts'),
-                                    '--fish-data', str(d / 'fish'), '--real-name', 'fish'])))
+            r = subprocess.run(
+                [sys.executable, '-B', str(HERE / 'fishsense.py'), 'correct'],
+                input=stdin,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                env=dict(
+                    env,
+                    FISHSENSE_ARGS='\x1f'.join(
+                        [
+                            '--cwd',
+                            common.enc(str(d)),
+                            '--line',
+                            common.enc('git stauts'),
+                            '--fish-data',
+                            str(d / 'fish'),
+                            '--real-name',
+                            'fish',
+                        ]
+                    ),
+                ),
+            )
             self.assertEqual((r.stdout, r.stderr), (f'fix\t{common.enc("git status")}\n', ''))
 
 

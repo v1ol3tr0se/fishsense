@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """fishsense helper: `fishsense.py <subcommand> [args]`. Called by the fish side, never by hand."""
+
 import importlib
 import os
 import signal
@@ -22,6 +23,7 @@ SUBS = {
 
 def doctor():
     import common
+
     print(f'python: {sys.version.split()[0]}')
     print(f'data: {common.data_dir()}')
     print(f'cache: {common.cache_dir()}')
@@ -46,6 +48,7 @@ def main(argv):
             return doctor()
         if sub == 'gc':
             import common
+
             common.gc_shadows(rest[rest.index('--fish-data') + 1])
             return 0
         if sub not in SUBS:

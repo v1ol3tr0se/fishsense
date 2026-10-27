@@ -1,4 +1,5 @@
 """Parameters and structure: help/man/source parsing, generated completions, tldr pages, next-param ghost."""
+
 import json
 import os
 import re
@@ -11,19 +12,65 @@ LANGS = ('en',)
 PLATFORMS = ('linux', 'common')
 TLDR_URL = 'https://github.com/tldr-pages/tldr/releases/latest/download/tldr-pages.{}.zip'
 HELP_TIMEOUT = 2
-DENY = {'shutdown', 'reboot', 'poweroff', 'halt', 'rm', 'dd', 'systemctl', 'init', 'telinit', 'sudo', 'doas',
-        'su', 'pkexec', 'run0', 'login', 'passwd', 'chsh', 'X', 'Xorg', 'Hyprland', 'startx',
-        'systemd', 'pkill', 'xkill', 'shred', 'wipefs', 'fdisk', 'sfdisk', 'parted', 'sgdisk'}
-WRAPPERS = {'sudo', 'doas', 'run0', 'pkexec', 'command', 'builtin', 'exec', 'time', 'nice', 'nohup', 'env',
-            'and', 'or', 'not', 'begin', 'if', 'while', 'else'}
+DENY = {
+    'shutdown',
+    'reboot',
+    'poweroff',
+    'halt',
+    'rm',
+    'dd',
+    'systemctl',
+    'init',
+    'telinit',
+    'sudo',
+    'doas',
+    'su',
+    'pkexec',
+    'run0',
+    'login',
+    'passwd',
+    'chsh',
+    'X',
+    'Xorg',
+    'Hyprland',
+    'startx',
+    'systemd',
+    'pkill',
+    'xkill',
+    'shred',
+    'wipefs',
+    'fdisk',
+    'sfdisk',
+    'parted',
+    'sgdisk',
+}
+WRAPPERS = {
+    'sudo',
+    'doas',
+    'run0',
+    'pkexec',
+    'command',
+    'builtin',
+    'exec',
+    'time',
+    'nice',
+    'nohup',
+    'env',
+    'and',
+    'or',
+    'not',
+    'begin',
+    'if',
+    'while',
+    'else',
+}
 SUB_VARS = {'1', 'cmd', 'command', 'action', 'sub', 'subcommand', 'verb', 'op', 'mode'}
 
 _NAME = re.compile(r'[\w+@:,-][\w.+@:,=-]*')
 _SAFE_VAL = re.compile(r'[\w.+:,@%=-]+')
 _LONG = re.compile(r'[\w?@#][\w.+@#-]*')
 _SUBWORD = re.compile(r'[a-z][\w.-]*')
-_GENERIC = {'string', 'str', 'strings', 'stringarray', 'value', 'val', 'arg', 'args', 'text', 'x', 's', 'n',
-            'uint', 'int'}
+_GENERIC = {'string', 'str', 'strings', 'stringarray', 'value', 'val', 'arg', 'args', 'text', 'x', 's', 'n', 'uint', 'int'}
 _FILEISH = re.compile(r'path|file|dir|input|output|folder', re.I)
 
 
@@ -45,7 +92,7 @@ def _split(s):
     while i < len(s):
         c = s[i]
         if c == '\\' and i + 1 < len(s):
-            cur += s[i:i + 2]
+            cur += s[i : i + 2]
             i += 2
             continue
         if q:
@@ -170,7 +217,7 @@ def _opt_line(s):
                 start = toks[i].start()
                 while i + 1 < len(toks) and not toks[i].group().endswith('"'):
                     i += 1
-                w = s[start:toks[i].end()]
+                w = s[start : toks[i].end()]
             if o['arg'] is None:
                 o['arg'] = w.rstrip(',').strip('"')
             want_arg = False
@@ -182,7 +229,7 @@ def _opt_line(s):
                 break
     if not (o['s'] or o['l'] or o['o']):
         return None
-    o['d'] = s[toks[i].start():] if i < len(toks) else ''
+    o['d'] = s[toks[i].start() :] if i < len(toks) else ''
     o['col'] = toks[i].start() if i < len(toks) else None
     return o
 
@@ -212,12 +259,20 @@ def _scan_opts(lines):
 
 _VALRX = [
     (re.compile(r'\[possible values: ([^\]]+)\]', re.I), r','),
-    (re.compile(r'(?:one of|possible values|valid values(?: are)?|valid options(?: are)?|accepted values'
-                r'(?: \([^)]*\))?|choices(?: are)?)\s*:?\s*([^.;\]]+)', re.I), r',\s*(?:or\s+|and\s+)?|\s+or\s+'),
+    (
+        re.compile(
+            r'(?:one of|possible values|valid values(?: are)?|valid options(?: are)?|accepted values'
+            r'(?: \([^)]*\))?|choices(?: are)?)\s*:?\s*([^.;\]]+)',
+            re.I,
+        ),
+        r',\s*(?:or\s+|and\s+)?|\s+or\s+',
+    ),
     (re.compile(r'\{([^{}\s]+,[^{}\s]+)\}'), r','),
     (re.compile(r'(?:^|\()([\w.+-]+(?:/[\w.+-]+)+)(?=[,;)]|$)'), r'/'),
-    (re.compile(r"('[\w.+-]+'(?:\s*\([^)]*\))?(?:(?:\s*,\s*(?:or\s+)?|\s+or\s+)'[\w.+-]+'(?:\s*\([^)]*\))?)+)"),
-     r',\s*(?:or\s+)?|\s+or\s+'),
+    (
+        re.compile(r"('[\w.+-]+'(?:\s*\([^)]*\))?(?:(?:\s*,\s*(?:or\s+)?|\s+or\s+)'[\w.+-]+'(?:\s*\([^)]*\))?)+)"),
+        r',\s*(?:or\s+)?|\s+or\s+',
+    ),
 ]
 
 
@@ -333,7 +388,7 @@ def _usage_help(lines):
         out, base = [], _ind(l)
         if m.group(1).strip():
             out.append(m.group(1).strip())
-            for l2 in lines[i + 1:]:
+            for l2 in lines[i + 1 :]:
                 s = l2.strip()
                 m2 = re.match(r'or:\s*(.*)', s)
                 if m2:
@@ -343,7 +398,7 @@ def _usage_help(lines):
                 else:
                     break
         else:
-            for l2 in lines[i + 1:]:
+            for l2 in lines[i + 1 :]:
                 s = l2.strip()
                 if not s:
                     if out:
@@ -416,8 +471,7 @@ def parse_help(text, man=False):
     if man:
         secs = _man_sections(lines)
         usage = next_of(_usage_man(ls) for n, ls in secs if n == 'SYNOPSIS') or []
-        body = [l for n, ls in secs if n not in ('NAME', 'SYNOPSIS', 'EXAMPLE', 'EXAMPLES', 'SEE ALSO')
-                for l in ls + ['']]
+        body = [l for n, ls in secs if n not in ('NAME', 'SYNOPSIS', 'EXAMPLE', 'EXAMPLES', 'SEE ALSO') for l in ls + ['']]
         subs = []
     else:
         usage, body, subs = _usage_help(lines), lines, _scan_subs(lines)
@@ -448,6 +502,7 @@ def _merge(*infos):
 
 def _words(s):
     import shlex
+
     try:
         return shlex.split(s, comments=True)
     except ValueError:
@@ -508,15 +563,15 @@ def parse_fish_source(text, name=None):
     if name:
         m = re.search(rf'^[ \t]*function[ \t]+{re.escape(name)}(?=[\s;])', text, re.M)
         if m:
-            rest = text[m.end():]
+            rest = text[m.end() :]
             n = re.search(r'^function[ \t]', rest, re.M)
-            text = rest[:n.start()] if n else rest
+            text = rest[: n.start()] if n else rest
     opts, subs, on_arg1 = [], [], False
     for line in re.sub(r'\\\n', ' ', text).splitlines():
         s = line.strip()
         if re.match(r'(?:(?:and|or|not|if|else if|set\s+-\w+\s+\w+)\s+)*argparse\s', s):
             words = _words(s)
-            words, skip = words[words.index('argparse') + 1:], False
+            words, skip = words[words.index('argparse') + 1 :], False
             for w in words:
                 if skip:
                     skip = False
@@ -542,7 +597,7 @@ def parse_sh_source(text):
         for i, c in enumerate(spec):
             if c != ':':
                 o = _new_opt()
-                o['s'], o['arg'] = [c], 'value' if spec[i + 1:i + 2] == ':' else None
+                o['s'], o['arg'] = [c], 'value' if spec[i + 1 : i + 2] == ':' else None
                 opts.append(o)
     lines = text.splitlines()
     for i, l in enumerate(lines):
@@ -556,18 +611,18 @@ def parse_sh_source(text):
         mp = re.match(r'\s*\(?\s*([^\s()|;]+(?:\s*\|\s*[^\s()|;]+)*)\s*\)(.*)', l)
         if not mp or target is None:
             continue
-        body = '\n'.join([mp.group(2)] + lines[i + 1:i + 15]).split(';;', 1)[0]
+        body = '\n'.join([mp.group(2)] + lines[i + 1 : i + 15]).split(';;', 1)[0]
         takes = bool(re.search(r'\$\{?2\b|shift\s+2|OPTARG', body))
         ws = [w.strip().strip('"\'') for w in mp.group(1).split('|')]
         opts.append(_join(_case_flag(w, takes) for w in ws if w.startswith('-')))
         subs += [(w, '') for w in ws if target in SUB_VARS and _SUBWORD.fullmatch(w)]
-    docs = [parse_help(m.group(3)) for m in
-            re.finditer(r'<<-?\s*([\'"]?)(\w+)\1[^\n]*\n(.*?)^\s*\2\s*$', text, re.S | re.M)]
+    docs = [parse_help(m.group(3)) for m in re.finditer(r'<<-?\s*([\'"]?)(\w+)\1[^\n]*\n(.*?)^\s*\2\s*$', text, re.S | re.M)]
     return _merge(*docs, {'opts': [o for o in opts if o], 'usage': [], 'subs': subs})
 
 
 def _lit(node):
     import ast
+
     try:
         return ast.literal_eval(node) if node is not None else None
     except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
@@ -576,14 +631,14 @@ def _lit(node):
 
 def parse_py_source(text):
     import ast
+
     try:
         tree = ast.parse(text)
     except (SyntaxError, ValueError, RecursionError):
         return {}
     opts, subs, docs = [], [], []
     for node in ast.walk(tree):
-        if isinstance(node, ast.Constant) and isinstance(node.value, str) and 'usage' in node.value.lower() \
-                and '\n' in node.value:
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) and 'usage' in node.value.lower() and '\n' in node.value:
             docs.append(parse_help(node.value))
         if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
             continue
@@ -600,8 +655,10 @@ def parse_py_source(text):
             boolean = isinstance(act, ast.Attribute) and act.attr == 'BooleanOptionalAction'
             if boolean:
                 o['l'] += [f'no-{l}' for l in o['l']]
-            elif _lit(act) not in ('store_true', 'store_false', 'store_const', 'count', 'help', 'version',
-                                   'append_const') and _lit(kw.get('nargs')) != 0:
+            elif (
+                _lit(act) not in ('store_true', 'store_false', 'store_const', 'count', 'help', 'version', 'append_const')
+                and _lit(kw.get('nargs')) != 0
+            ):
                 o['arg'] = str(_lit(kw.get('metavar')) or (o['l'] or o['o'] or ['value'])[0])
                 choices = _lit(kw.get('choices'))
                 if isinstance(choices, (list, tuple, set, range)):
@@ -616,27 +673,28 @@ def parse_py_source(text):
 
 def _man(name):
     import subprocess
+
     env = {k: v for k, v in os.environ.items() if k in ('PATH', 'HOME', 'MANPATH')}
     env.update(LANG='C', LC_ALL='C', MANPAGER='cat', PAGER='cat', MANWIDTH='200')
     try:
-        r = subprocess.run(['man', '-S', '1:8:6', name], stdin=subprocess.DEVNULL, capture_output=True,
-                           env=env, timeout=5)
+        r = subprocess.run(['man', '-S', '1:8:6', name], stdin=subprocess.DEVNULL, capture_output=True, env=env, timeout=5)
     except (OSError, subprocess.SubprocessError):
         return ''
-    return r.stdout.decode('utf-8', 'replace')[:1 << 20] if r.returncode == 0 else ''
+    return r.stdout.decode('utf-8', 'replace')[: 1 << 20] if r.returncode == 0 else ''
 
 
 def _mentions_help(path):
     """`help` or `usage` as a word somewhere in the binary. A program without either can't be answering
     --help: it ignores its arguments and does its job (open a serial port, start a stream)."""
     import mmap
+
     with open(path, 'rb') as f, mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as m:
         for word in (b'help', b'Help', b'HELP', b'usage', b'Usage', b'USAGE'):
             i = m.find(word)
             for _ in range(10000):
                 if i < 0:
                     break
-                before, after = m[i - 1:i] if i else b'', m[i + len(word):i + len(word) + 1]
+                before, after = m[i - 1 : i] if i else b'', m[i + len(word) : i + len(word) + 1]
                 if not before.isalpha() and not (after.isalpha() and after.islower()):
                     return True
                 i = m.find(word, i + 1)
@@ -655,6 +713,7 @@ def exec_ok(path, name):
         if os.path.realpath(os.path.dirname(os.path.abspath(path))) not in dirs:
             return False
         import stat
+
         st = os.stat(real)
         if not stat.S_ISREG(st.st_mode) or st.st_mode & (stat.S_ISUID | stat.S_ISGID):
             return False
@@ -671,6 +730,7 @@ def exec_ok(path, name):
 
 def _limits():
     import resource
+
     resource.setrlimit(resource.RLIMIT_FSIZE, (1 << 20, 1 << 20))
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
 
@@ -679,15 +739,35 @@ def _run_help(path):
     import signal
     import subprocess
     import tempfile
+
     info = {}
     with tempfile.TemporaryDirectory(prefix='fishsense-help-') as tmp:
-        env = {'PATH': os.environ.get('PATH', '/usr/bin'), 'LANG': 'C', 'LC_ALL': 'C', 'HOME': tmp,
-               'TERM': 'dumb', 'NO_COLOR': '1', 'COLUMNS': '200', 'XDG_CONFIG_HOME': tmp, 'XDG_CACHE_HOME': tmp,
-               'XDG_DATA_HOME': tmp, 'XDG_STATE_HOME': tmp, 'XDG_RUNTIME_DIR': tmp}
+        env = {
+            'PATH': os.environ.get('PATH', '/usr/bin'),
+            'LANG': 'C',
+            'LC_ALL': 'C',
+            'HOME': tmp,
+            'TERM': 'dumb',
+            'NO_COLOR': '1',
+            'COLUMNS': '200',
+            'XDG_CONFIG_HOME': tmp,
+            'XDG_CACHE_HOME': tmp,
+            'XDG_DATA_HOME': tmp,
+            'XDG_STATE_HOME': tmp,
+            'XDG_RUNTIME_DIR': tmp,
+        }
         for flag in ('--help', '-h'):
             with tempfile.TemporaryFile() as out:
-                p = subprocess.Popen([path, flag], stdin=subprocess.DEVNULL, stdout=out, stderr=out, cwd=tmp,
-                                     env=env, start_new_session=True, preexec_fn=_limits)
+                p = subprocess.Popen(
+                    [path, flag],
+                    stdin=subprocess.DEVNULL,
+                    stdout=out,
+                    stderr=out,
+                    cwd=tmp,
+                    env=env,
+                    start_new_session=True,
+                    preexec_fn=_limits,
+                )
                 try:
                     p.wait(timeout=HELP_TIMEOUT)
                     hung = False
@@ -707,8 +787,10 @@ def _run_help(path):
 
 def _parse_target(name, path, kind, allow_exec):
     """-> (info, complete); complete=False when an ELF's --help was not tried yet."""
+
     def read():
-        return Path(path).read_bytes()[:2 << 20].decode('utf-8', 'replace')
+        return Path(path).read_bytes()[: 2 << 20].decode('utf-8', 'replace')
+
     if kind == 'function':
         return {**parse_fish_source(read(), name), 'src': 'source'}, True
     man = _man(name)
@@ -757,11 +839,11 @@ def help_info(name, path=None, kind='file', allow_exec=False, force=False):
         kind = 'function' if path and path.endswith('.fish') else 'file'
     if kind != 'function' and not path:
         import shutil
+
         path = shutil.which(name)
     cpath = common.cache_dir() / 'help' / f'{name}.json'
     key, cached = _key(path), _load(cpath)
-    if cached and not force and (key is None or cached.get('key') == key) \
-            and (cached.get('complete') or not allow_exec):
+    if cached and not force and (key is None or cached.get('key') == key) and (cached.get('complete') or not allow_exec):
         return cached
     if key is None:
         return cached or {}
@@ -777,15 +859,25 @@ def help_info(name, path=None, kind='file', allow_exec=False, force=False):
 def _fish_ships(name):
     """A completion fish (embedded or vendor) or the user already has; ours would only add noise."""
     import subprocess
-    dirs = [Path(os.environ.get('XDG_CONFIG_HOME') or Path.home() / '.config') / 'fish/completions',
-            Path(os.environ.get('XDG_DATA_HOME') or Path.home() / '.local/share') / 'fish/vendor_completions.d']
+
+    dirs = [
+        Path(os.environ.get('XDG_CONFIG_HOME') or Path.home() / '.config') / 'fish/completions',
+        Path(os.environ.get('XDG_DATA_HOME') or Path.home() / '.local/share') / 'fish/vendor_completions.d',
+    ]
     for d in (os.environ.get('XDG_DATA_DIRS') or '/usr/local/share:/usr/share').split(':'):
         dirs += [Path(d) / 'fish/vendor_completions.d', Path(d) / 'fish/completions']
     if any((d / f'{name}.fish').is_file() for d in dirs):
         return True
     try:
-        return subprocess.run(['fish', '--no-config', '-c', 'status list-files completions/$argv[1].fish', name],
-                              stdin=subprocess.DEVNULL, capture_output=True, timeout=3).returncode == 0
+        return (
+            subprocess.run(
+                ['fish', '--no-config', '-c', 'status list-files completions/$argv[1].fish', name],
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                timeout=3,
+            ).returncode
+            == 0
+        )
     except (OSError, subprocess.SubprocessError):
         return False
 
@@ -864,6 +956,7 @@ def _render(tok):
     def sub(m):
         a = _alts(m.group(0))
         return a[0] if a else f'‹{m.group(1)}›'
+
     return re.sub(r'\{\{(.*?)\}\}', sub, tok)
 
 
@@ -886,7 +979,7 @@ def _tldr_match(words, cmd):
                 return None
         elif '{{' not in e and b != e and b.strip('\'"') != e.strip('\'"'):
             return None
-    return ' '.join(_render(t) for t in et[len(words):])
+    return ' '.join(_render(t) for t in et[len(words) :])
 
 
 def _page(name, lang):
@@ -919,8 +1012,10 @@ def build_index(root):
                 line = _structure(p.stem, parse_tldr(p.read_text(encoding='utf-8', errors='replace')))
                 if line:
                     static[p.stem] = line
-    common.write_atomic(Path(root) / 'index.json', json.dumps(
-        {'v': 2, 'updated': int(time.time()), 'pages': pages, 'static': static}, ensure_ascii=False))
+    common.write_atomic(
+        Path(root) / 'index.json',
+        json.dumps({'v': 2, 'updated': int(time.time()), 'pages': pages, 'static': static}, ensure_ascii=False),
+    )
     return sum(pages.values())
 
 
@@ -930,6 +1025,7 @@ def tldr_update():
     import shutil
     import urllib.request
     import zipfile
+
     root = tldr_dir()
     tmp, old = root.with_name(f'.tldr.{os.getpid()}'), root.with_name(f'.tldr-old.{os.getpid()}')
     shutil.rmtree(tmp, ignore_errors=True)
@@ -940,8 +1036,13 @@ def tldr_update():
             with zipfile.ZipFile(io.BytesIO(data)) as z:
                 for info in z.infolist()[:50000]:
                     parts = info.filename.split('/')
-                    if len(parts) == 2 and parts[0] in PLATFORMS and parts[1].endswith('.md') \
-                            and _NAME.fullmatch(parts[1][:-3]) and info.file_size < 1 << 20:
+                    if (
+                        len(parts) == 2
+                        and parts[0] in PLATFORMS
+                        and parts[1].endswith('.md')
+                        and _NAME.fullmatch(parts[1][:-3])
+                        and info.file_size < 1 << 20
+                    ):
                         dest = tmp / lang / parts[0] / parts[1]
                         dest.parent.mkdir(parents=True, exist_ok=True)
                         dest.write_bytes(z.read(info))
@@ -1024,7 +1125,7 @@ def _habit_flag(words, history, amap):
         if not word.search(h):
             continue
         for seg in _segments(h):
-            if not seg or seg[0] != c or seg[1:1 + len(lead)] != lead:
+            if not seg or seg[0] != c or seg[1 : 1 + len(lead)] != lead:
                 continue
             hflags = [_flag(w) for w in seg[1:] if _isflag(w)]
             if not bflags <= set(hflags):
@@ -1059,7 +1160,7 @@ def _usage_next(words, info, amap):
         i += 1
     for items in info.get('usage', []):
         lits = [x[1] for x in items if x[0] == 'lit']
-        if pos[:len(lits)] != lits:
+        if pos[: len(lits)] != lits:
             continue
         nargs, k, miss = len(pos) - len(lits), 0, []
         for x in items:
@@ -1094,9 +1195,11 @@ def next(buffer, cwd=None, history=(), target=None):
     last = words[-1]
     pend = amap.get(_flag(last), (None,))[0] if _isflag(last) and '=' not in last else None
     import shutil
+
     tldr = _tldr_next(words) if shutil.which(c) else None
-    cont = (None if pend else _habit_flag(words, history, amap)) or tldr \
-        or (f'‹{pend}›' if pend else _usage_next(words, info, amap))
+    cont = (
+        (None if pend else _habit_flag(words, history, amap)) or tldr or (f'‹{pend}›' if pend else _usage_next(words, info, amap))
+    )
     if not cont:
         return None
     line = buffer + common.sanitize(cont)
@@ -1143,8 +1246,7 @@ def main(sub, argv):
     if sub == 'next':
         hist = []
         if o.get('fish-data'):
-            hist = [i.cmd for i in common.read_fish_history(
-                common.real_history_path(o['fish-data'], o.get('real-name', 'fish')))]
+            hist = [i.cmd for i in common.read_fish_history(common.real_history_path(o['fish-data'], o.get('real-name', 'fish')))]
         buf, cwd = common.dec(o.get('buffer', '')), common.dec(o.get('cwd', ''))
         name = o.get('cmd-name')
         target = (name, o.get('cmd-kind', 'file'), o.get('cmd-path')) if name else None

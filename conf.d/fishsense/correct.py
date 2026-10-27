@@ -7,6 +7,7 @@ fish only sends for a command it knows; a `#sub` description starting with `alia
 own aliases, whose fix asks like a function's.
 Prints `fix\t<url(line)>`, `ask\t<url(line)>` or nothing.
 """
+
 import functools
 import os
 import re
@@ -19,9 +20,29 @@ SUDO = {'sudo', 'doas', 'run0', 'pkexec'}
 FISH_PREFIX = {'command', 'builtin', 'exec', 'time'}
 PREFIX = SUDO | FISH_PREFIX | {'env'}
 VALUE_FLAGS = {'-u', '-g', '-C', '-D', '-U', '-p', '-r', '-t', '-T', '-R', '--user', '--group', '--chdir'}
-DESTRUCTIVE = {'rm', 'rmdir', 'dd', 'shred', 'wipefs', 'fdisk', 'sfdisk', 'parted', 'sgdisk', 'mv', 'cp',
-               'chmod', 'chown', 'kill', 'killall', 'pkill', 'shutdown', 'reboot', 'poweroff', 'halt',
-               'systemctl'}
+DESTRUCTIVE = {
+    'rm',
+    'rmdir',
+    'dd',
+    'shred',
+    'wipefs',
+    'fdisk',
+    'sfdisk',
+    'parted',
+    'sgdisk',
+    'mv',
+    'cp',
+    'chmod',
+    'chown',
+    'kill',
+    'killall',
+    'pkill',
+    'shutdown',
+    'reboot',
+    'poweroff',
+    'halt',
+    'systemctl',
+}
 GIT_DESTRUCTIVE = {'push', 'reset', 'clean', 'rebase', 'checkout', 'restore'}
 NAME = re.compile(r'[A-Za-z0-9_][\w.+,:@-]*')
 SUB = re.compile(r'[A-Za-z][\w-]*')
@@ -39,7 +60,7 @@ def _words(line):
             return out
         start, val, q, bad = i, [], '', False
         while i < n and (q or line[i] not in ' \t' + STOP):
-            c, nxt = line[i], line[i + 1:i + 2]
+            c, nxt = line[i], line[i + 1 : i + 2]
             if c == '\\':
                 esc = {"'": "'\\", '"': '"\\$'}.get(q)
                 if esc is None:
@@ -97,8 +118,7 @@ def _best(word, cands, usage, used_only=False):
     random PATH binaries (neomutt -> permute)."""
     n, ws = len(word), set(word)
     cap = 1 if n <= 3 else 2 if n <= 6 else 3
-    scored = [(d, c) for c in cands if abs(len(c) - n) <= cap and len(ws ^ set(c)) <= 2 * cap
-              and (d := _dl(word, c, cap)) <= cap]
+    scored = [(d, c) for c in cands if abs(len(c) - n) <= cap and len(ws ^ set(c)) <= 2 * cap and (d := _dl(word, c, cap)) <= cap]
     if not scored:
         return None
     m = min(d for d, _ in scored)
@@ -122,7 +142,7 @@ def destructive(line):
         if any(x in DESTRUCTIVE or x in SUDO or x.startswith('mkfs') for x in w):
             return True
         if 'git' in w:
-            rest = w[w.index('git') + 1:]
+            rest = w[w.index('git') + 1 :]
             short = ''.join(x[1:] for x in rest if re.fullmatch(r'-[A-Za-z]+', x))
             force = 'D' in short or ('d' in short or '--delete' in rest) and ('f' in short or '--force' in rest)
             if GIT_DESTRUCTIVE & set(rest) or ('branch' in rest and force):
@@ -184,8 +204,14 @@ def correct_line(line, cwd, exists, cands, subs, usage, wrapper=lambda w: False,
     if cmd in subs and i < len(words):
         s, e, w = words[i]
         names = {c for c in subs[cmd] if SUB.fullmatch(c)}
-        if w and len(w) > 1 and not any(c.startswith(w) for c in subs[cmd]) and SUB.fullmatch(w) \
-                and not os.path.lexists(os.path.join(cwd, w)) and not _node_bin(cwd, w):
+        if (
+            w
+            and len(w) > 1
+            and not any(c.startswith(w) for c in subs[cmd])
+            and SUB.fullmatch(w)
+            and not os.path.lexists(os.path.join(cwd, w))
+            and not _node_bin(cwd, w)
+        ):
             fixed = _best(w, names, lambda n: usage(n, cmd))
             if fixed and not os.path.lexists(os.path.join(cwd, fixed)):
                 edits.append((s, e, fixed))
@@ -224,8 +250,7 @@ def _usage(fish_data, real_name, names, cmd):
     hist, log = _ran(fish_data, real_name)
     keys = [common.enc(x) for x in names]
     n = {}
-    for line in [h for h in hist if any(x in h for x in names)] + \
-            [common.dec(r) for r in log if any(k in r for k in keys)]:
+    for line in [h for h in hist if any(x in h for x in names)] + [common.dec(r) for r in log if any(k in r for k in keys)]:
         c, a = _head(line)
         k = c if cmd is None else (a if c == cmd else None)
         if k in names:
@@ -256,13 +281,18 @@ def main(sub, argv):
 
     @functools.cache
     def cands():
-        return {c for c in cmds | funcs | common.path_executables().keys()
-                if NAME.fullmatch(c) and not c.startswith('_')}
+        return {c for c in cmds | funcs | common.path_executables().keys() if NAME.fullmatch(c) and not c.startswith('_')}
 
-    r = correct_line(common.dec(o.get('--line', '')), common.dec(o.get('--cwd', '')),
-                     lambda w: w in cmds or w in funcs or w in subs or shutil.which(w) is not None, cands, subs,
-                     lambda names, cmd: _usage(fish_data, real_name, names, cmd),
-                     lambda w: False, aliases)
+    r = correct_line(
+        common.dec(o.get('--line', '')),
+        common.dec(o.get('--cwd', '')),
+        lambda w: w in cmds or w in funcs or w in subs or shutil.which(w) is not None,
+        cands,
+        subs,
+        lambda names, cmd: _usage(fish_data, real_name, names, cmd),
+        lambda w: False,
+        aliases,
+    )
     if r:
         print(f'{r[0]}\t{common.enc(r[1])}')
     return 0

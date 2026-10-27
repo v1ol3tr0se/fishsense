@@ -6,3 +6,7 @@ ignore = ["E741"]
 
 [lint.per-file-ignores]
 "tests/*" = ["E402"]
+
+[format]
+quote-style = "single"
+exclude = ["tests/fixtures/**"]

@@ -18,23 +18,21 @@ class HistoryRoundTrip(unittest.TestCase):
     def test_read_write(self):
         with tempfile.TemporaryDirectory() as d:
             p = Path(d) / 'x_history'
-            p.write_text(common.format_fish_history(
-                [('cd etc/', ('etc/',)), ('printf "a\\nb"\necho two', ())], when=100))
+            p.write_text(common.format_fish_history([('cd etc/', ('etc/',)), ('printf "a\\nb"\necho two', ())], when=100))
             items = common.read_fish_history(p)
             self.assertEqual([i.cmd for i in items], ['cd etc/', 'printf "a\\nb"\necho two'])
             self.assertEqual(items[0].paths, ('etc/',))
             self.assertEqual(items[0].when, 100)
 
     def test_real_format(self):
-        text = ('- cmd: yay -Syyu\n  when: 1791022541\n- cmd: ls /\n  when: 1791022542\n'
-                '  paths:\n    - /\n')
+        text = '- cmd: yay -Syyu\n  when: 1791022541\n- cmd: ls /\n  when: 1791022542\n  paths:\n    - /\n'
         with tempfile.TemporaryDirectory() as d:
             p = Path(d) / 'fish_history'
             p.write_text(text)
-            self.assertEqual(common.read_fish_history(p),
-                             [common.HistItem('yay -Syyu', 1791022541, ()),
-                              common.HistItem('ls /', 1791022542, ('/',))])
-
+            self.assertEqual(
+                common.read_fish_history(p),
+                [common.HistItem('yay -Syyu', 1791022541, ()), common.HistItem('ls /', 1791022542, ('/',))],
+            )
 
     def test_raw_bytes_and_odd_separators(self):
         cmds = [b'cat caf\xe9.txt', 'echo one\u2028two'.encode(), b'a\rb\x0bc\x1cd\x85e']
@@ -66,10 +64,16 @@ class LogAndMisc(unittest.TestCase):
             p.write_text('old')
             common.write_atomic(p, 'new', ok=lambda: False)
             self.assertEqual((p.read_text(), os.listdir(d)), ('old', ['x_history']))
-            code = f'import sys; sys.path.insert(0, {str(Path(common.__file__).parent)!r}); import common\n' \
-                   f'common.write_atomic({str(p)!r}, "x" * 200000)'
-            r = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True,
-                               preexec_fn=lambda: resource.setrlimit(resource.RLIMIT_FSIZE, (65536, 65536)))
+            code = (
+                f'import sys; sys.path.insert(0, {str(Path(common.__file__).parent)!r}); import common\n'
+                f'common.write_atomic({str(p)!r}, "x" * 200000)'
+            )
+            r = subprocess.run(
+                [sys.executable, '-c', code],
+                capture_output=True,
+                text=True,
+                preexec_fn=lambda: resource.setrlimit(resource.RLIMIT_FSIZE, (65536, 65536)),
+            )
             self.assertIn('File too large', r.stderr)
             self.assertEqual((p.read_text(), os.listdir(d)), ('old', ['x_history']))
 
@@ -77,16 +81,18 @@ class LogAndMisc(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             p = Path(d) / 'log.tsv'
             p.write_text('old')
-            code = (f'import os, signal, sys; sys.path.insert(0, {str(Path(common.__file__).parent)!r})\n'
-                    'import fishsense, common\n'
-                    'from pathlib import Path\n'
-                    'w = Path.write_text\n'
-                    'def write(self, *a, **k):\n'
-                    '    n = w(self, *a, **k)\n'
-                    '    os.kill(os.getpid(), signal.SIGTERM)\n'
-                    '    return n\n'
-                    'Path.write_text = write\n'
-                    f'common.write_atomic({str(p)!r}, "new")\n')
+            code = (
+                f'import os, signal, sys; sys.path.insert(0, {str(Path(common.__file__).parent)!r})\n'
+                'import fishsense, common\n'
+                'from pathlib import Path\n'
+                'w = Path.write_text\n'
+                'def write(self, *a, **k):\n'
+                '    n = w(self, *a, **k)\n'
+                '    os.kill(os.getpid(), signal.SIGTERM)\n'
+                '    return n\n'
+                'Path.write_text = write\n'
+                f'common.write_atomic({str(p)!r}, "new")\n'
+            )
             r = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True, timeout=10)
             self.assertEqual((r.returncode, r.stderr), (143, ''))
             self.assertEqual((p.read_text(), os.listdir(d)), ('old', ['log.tsv']))

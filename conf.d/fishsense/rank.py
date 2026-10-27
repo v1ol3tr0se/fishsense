@@ -1,4 +1,5 @@
 """rank: orders the real history into the per-shell shadow history that feeds fish's autosuggestion."""
+
 import functools
 import os
 import time
@@ -82,8 +83,7 @@ def ranked(items, recs, cwd, last, now):
             s[2] += 1
         if k:
             s[2 + k] += w
-    ctx = {c: W_CWD * log1p(s[3]) + W_SUB * log1p(s[4]) + W_FREQ * log1p(s[0]) - W_FAIL * s[2] / s[1]
-           for c, s in st.items()}
+    ctx = {c: W_CWD * log1p(s[3]) + W_SUB * log1p(s[4]) + W_FREQ * log1p(s[0]) - W_FAIL * s[2] / s[1] for c, s in st.items()}
 
     trans = _transitions(recs, last)
     n = max(len(uniq) - 1, 1)
@@ -146,6 +146,7 @@ def load_log(items, now, fish_data=None, real_name='fish'):
 def _static(real):
     try:
         import params
+
         names = set()
         for d in os.environ.get('PATH', '').split(':'):
             try:
@@ -161,8 +162,7 @@ def _static(real):
 def _args(argv):
     """--key value pairs. Values are url-encoded so they never start with `--`; one that fish's
     command substitution expanded to nothing just leaves its key out instead of eating the next."""
-    a = {k[2:].replace('-', '_'): v for k, v in zip(argv, argv[1:] + [''])
-         if k.startswith('--') and not v.startswith('--')}
+    a = {k[2:].replace('-', '_'): v for k, v in zip(argv, argv[1:] + ['']) if k.startswith('--') and not v.startswith('--')}
     a['notify'] = '--notify' in argv
     return a
 
@@ -196,8 +196,7 @@ def main(sub, argv):
     if stale():
         return 0
     recs = load_log(items, now, fish_data, real_name)
-    real = ranked(items, recs, common.dec(a.get('cwd', '')) or os.getcwd(),
-                  common.dec(a.get('last', '')), now)
+    real = ranked(items, recs, common.dec(a.get('cwd', '')) or os.getcwd(), common.dec(a.get('last', '')), now)
     entries = _static({c for c, _ in real}) + real
     if stale():
         return 0
