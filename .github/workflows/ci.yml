@@ -1,0 +1,42 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.x"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          enable-cache: false
+
+      - name: install fish 4, ffmpeg and exiftool
+        run: |
+          sudo add-apt-repository -y ppa:fish-shell/release-4
+          sudo apt-get install -y fish ffmpeg libimage-exiftool-perl
+          fish --version
+
+      - run: make verify
