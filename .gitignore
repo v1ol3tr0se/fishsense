@@ -2,3 +2,12 @@ __pycache__/
 *.pyc
 .ruff_cache/
 .venv/
+
+*.log
+.env*
+*.bak*
+*.orig
+*.rej
+*~
+*.swp
+.directory
