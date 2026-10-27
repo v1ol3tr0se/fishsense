@@ -36,8 +36,7 @@ class Isolated(unittest.TestCase):
 
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix='fishsense-test-'))
-        env = {k: str(self.tmp / k.lower()) for k in
-               ('XDG_CACHE_HOME', 'XDG_DATA_HOME', 'XDG_CONFIG_HOME', 'XDG_RUNTIME_DIR')}
+        env = {k: str(self.tmp / k.lower()) for k in ('XDG_CACHE_HOME', 'XDG_DATA_HOME', 'XDG_CONFIG_HOME', 'XDG_RUNTIME_DIR')}
         self.env = mock.patch.dict(os.environ, env)
         self.env.start()
         self.no_man = mock.patch.object(params, '_man', return_value='')
@@ -54,8 +53,7 @@ class Isolated(unittest.TestCase):
 
     def seed_help(self, name, fixture):
         """Cached help for a name that is not on PATH (no key to validate)."""
-        common.write_atomic(common.cache_dir() / 'help' / f'{name}.json',
-                            __import__('json').dumps(help_of(fixture)))
+        common.write_atomic(common.cache_dir() / 'help' / f'{name}.json', __import__('json').dumps(help_of(fixture)))
 
 
 class HelpStyles(unittest.TestCase):
@@ -96,8 +94,13 @@ class HelpStyles(unittest.TestCase):
         self.assertEqual(opt(uv, '--cache-dir')['arg'], 'CACHE_DIR')
         self.assertIn(('run', 'Run a command or script'), uv['subs'])
         self.assertEqual(uv['usage'], [[('arg', 'COMMAND')]])
-        for f, sub in (('dms.txt', 'screenshot'), ('ollama.txt', 'pull'), ('starship.txt', 'prompt'),
-                       ('go.txt', 'build'), ('lazygit.txt', 'completion')):
+        for f, sub in (
+            ('dms.txt', 'screenshot'),
+            ('ollama.txt', 'pull'),
+            ('starship.txt', 'prompt'),
+            ('go.txt', 'build'),
+            ('lazygit.txt', 'completion'),
+        ):
             self.assertIn(sub, [s for s, _ in help_of(f)['subs']], f)
         self.assertNotIn('buildmode', [s for s, _ in help_of('go.txt')['subs']])
         self.assertEqual(opt(help_of('dms.txt'), '-c')['l'], ['config'])
@@ -196,17 +199,28 @@ class Sources(unittest.TestCase):
 
 
 class Completions(Isolated):
-    HOSTILE = {'opts': [
-        {'s': ['m'], 'l': ['mode'], 'o': [], 'arg': 'M', 'opt': False, 'file': False, 'req': True,
-         'vals': ['ok', '$(touch PWNED)', "it's", 'a b', '(x)', '~root', '*'], 'd': "it's a \\ $(touch PWNED) test"},
-        {'s': [], 'l': ['out'], 'o': [], 'arg': 'FILE', 'opt': False, 'file': True, 'req': False, 'vals': [],
-         'd': ''},
-    ], 'subs': [('serve', 'run $HOME'), ('$(bad)', '')], 'src': 'man'}
+    HOSTILE = {
+        'opts': [
+            {
+                's': ['m'],
+                'l': ['mode'],
+                'o': [],
+                'arg': 'M',
+                'opt': False,
+                'file': False,
+                'req': True,
+                'vals': ['ok', '$(touch PWNED)', "it's", 'a b', '(x)', '~root', '*'],
+                'd': "it's a \\ $(touch PWNED) test",
+            },
+            {'s': [], 'l': ['out'], 'o': [], 'arg': 'FILE', 'opt': False, 'file': True, 'req': False, 'vals': [], 'd': ''},
+        ],
+        'subs': [('serve', 'run $HOME'), ('$(bad)', '')],
+        'src': 'man',
+    }
 
     def test_render_quotes_everything(self):
         text = params.render_completions('my-cmd', self.HOSTILE)
-        self.assertIn("complete -c 'my-cmd' -s 'm' -l 'mode' -x -a 'ok' -d '(required) it\\'s a \\\\ "
-                      "$(touch PWNED) test'", text)
+        self.assertIn("complete -c 'my-cmd' -s 'm' -l 'mode' -x -a 'ok' -d '(required) it\\'s a \\\\ $(touch PWNED) test'", text)
         self.assertIn("complete -c 'my-cmd' -l 'out' -r -F", text)
         self.assertIn("-n '__fish_use_subcommand' -a 'serve' -d 'run $HOME'", text)
         self.assertNotIn('bad', text)
@@ -215,11 +229,15 @@ class Completions(Isolated):
     def test_fish_loads_it_literally(self):
         f = self.tmp / 'c.fish'
         f.write_text(params.render_completions('my-cmd', self.HOSTILE))
-        r = subprocess.run([FISH, '--no-config', '-c',
-                            'source $argv[1]; complete -C "my-cmd --mode "; complete -C "my-cmd -"', str(f)],
-                           cwd=self.tmp, capture_output=True, text=True, env={**os.environ, 'HOME': str(self.tmp)})
+        r = subprocess.run(
+            [FISH, '--no-config', '-c', 'source $argv[1]; complete -C "my-cmd --mode "; complete -C "my-cmd -"', str(f)],
+            cwd=self.tmp,
+            capture_output=True,
+            text=True,
+            env={**os.environ, 'HOME': str(self.tmp)},
+        )
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn('ok\t(required) it\'s a \\ $(touch PWNED) test', r.stdout)
+        self.assertIn("ok\t(required) it's a \\ $(touch PWNED) test", r.stdout)
         self.assertFalse((self.tmp / 'PWNED').exists())
 
     def test_compgen_runs_help_once_and_caches(self):
@@ -243,15 +261,18 @@ class Completions(Isolated):
                 run.assert_called_once()
 
     def test_compgen_skips_what_fish_ships(self):
-        with mock.patch.object(params, '_fish_ships', return_value=True), \
-                mock.patch.object(params, 'help_info', side_effect=AssertionError('parsed')):
+        with (
+            mock.patch.object(params, '_fish_ships', return_value=True),
+            mock.patch.object(params, 'help_info', side_effect=AssertionError('parsed')),
+        ):
             self.assertIsNone(params.compgen('tar', 'file', '/usr/bin/tar'))
 
     def test_function_and_cli(self):
         buf = io.StringIO()
         with redirect_stdout(buf), mock.patch.object(params, '_fish_ships', return_value=False):
-            params.main('compgen', ['--cmd-name', 'upscale', '--cmd-kind', 'function',
-                                    '--cmd-path', str(FIX / 'src' / 'upscale.fish')])
+            params.main(
+                'compgen', ['--cmd-name', 'upscale', '--cmd-kind', 'function', '--cmd-path', str(FIX / 'src' / 'upscale.fish')]
+            )
         kind, payload = buf.getvalue().strip().split('\t')
         self.assertEqual(kind, 'compgen')
         self.assertIn("-s 'o' -l 'output' -r -F", Path(common.dec(payload)).read_text())
@@ -326,7 +347,6 @@ class ExecSafety(Isolated):
         self.assertEqual(seen['env']['LANG'], 'C')
         self.assertEqual(seen['env']['HOME'], seen['cwd'])
 
-
     def test_hanging_help_is_killed_once(self):
         p = self.put('slowbin', self.elf)
         calls = []
@@ -346,8 +366,10 @@ class ExecSafety(Isolated):
 class Tldr(Isolated):
     def test_parse_and_render(self):
         ex = params.parse_tldr((FIX / 'tldr' / 'en' / 'common' / 'git-commit.md').read_text())
-        self.assertEqual(ex[1], ('Commit staged files to the repository with the specified message',
-                                 'git commit {{[-m|--message]}} "{{message}}"'))
+        self.assertEqual(
+            ex[1],
+            ('Commit staged files to the repository with the specified message', 'git commit {{[-m|--message]}} "{{message}}"'),
+        )
         self.assertEqual(params._render('{{[-c|--create]}}'), '-c')
         self.assertEqual(params._render('"{{message}}"'), '"‹message›"')
         self.assertEqual(params._render('{{path/to/file[.gz|.bz2]}}'), '‹path/to/file[.gz|.bz2]›')
@@ -379,9 +401,20 @@ class Tldr(Isolated):
             return b.getvalue()
 
         page = '# foo\n\n- Do it:\n\n`foo {{bar}}`\n'
-        bodies = {lang: zipped({'common/foo.md': page, 'linux/lin.md': page.replace('foo', 'lin'),
-                                'osx/mac.md': page, 'common/../evil.md': page, '../evil.md': page,
-                                'linux/gnu[.md': page, 'index.json': '{}'}) for lang in params.LANGS}
+        bodies = {
+            lang: zipped(
+                {
+                    'common/foo.md': page,
+                    'linux/lin.md': page.replace('foo', 'lin'),
+                    'osx/mac.md': page,
+                    'common/../evil.md': page,
+                    '../evil.md': page,
+                    'linux/gnu[.md': page,
+                    'index.json': '{}',
+                }
+            )
+            for lang in params.LANGS
+        }
 
         class Resp(io.BytesIO):
             def __enter__(self):
@@ -460,11 +493,12 @@ class Next(Isolated):
 
     def test_tldr(self):
         self.assertEqual(params.next('git commit ', '/', []), 'git commit -m "‹message›"')
-        self.assertEqual(params.next('sudo tar ', '/', []),
-                         'sudo tar cf ‹path/to/target.tar› ‹path/to/file1 path/to/file2 ...›')
+        self.assertEqual(params.next('sudo tar ', '/', []), 'sudo tar cf ‹path/to/target.tar› ‹path/to/file1 path/to/file2 ...›')
+        self.assertEqual(params.next('ip address ', '/', []), 'ip address ‹add|delete› ‹ip_address›/‹mask› dev ‹ethX›')
+
+    @unittest.skipUnless(shutil.which('ffmpeg'), 'ffmpeg missing')
+    def test_tldr_after_flags(self):
         self.assertEqual(params.next('ffmpeg -i in.mkv ', '/', []), 'ffmpeg -i in.mkv -vn ‹path/to/sound.mp3›')
-        self.assertEqual(params.next('ip address ', '/', []),
-                         'ip address ‹add|delete› ‹ip_address›/‹mask› dev ‹ethX›')
 
     def test_no_tldr_for_fish_builtins(self):
         page = params.tldr_dir() / 'en' / 'common' / 'zqhist.md'
@@ -482,13 +516,27 @@ class Next(Isolated):
         self.assertIsNone(params.next('git commit ', '/', ['git commit -m "x"']))
 
     def test_always_extends_the_buffer(self):
-        bufs = ['tar ', 'tar  ', 'echo "a b" | tar ', 'git commit -m ', 'fakeup -i "a b.png" ', 'x; ffmpeg -i ',
-                'tar "open ', 'tar', '', ' ', 'nope ', 'fakeup -i a\n', 'fakeup -i ‹ ', 'FOO=1 tar ']
+        bufs = [
+            'tar ',
+            'tar  ',
+            'echo "a b" | tar ',
+            'git commit -m ',
+            'fakeup -i "a b.png" ',
+            'x; ffmpeg -i ',
+            'tar "open ',
+            'tar',
+            '',
+            ' ',
+            'nope ',
+            'fakeup -i a\n',
+            'fakeup -i ‹ ',
+            'FOO=1 tar ',
+        ]
         for b in bufs:
             r = params.next(b, '/', self.HIST)
             if r is not None:
                 self.assertTrue(r.startswith(b) and len(r) > len(b), (b, r))
-                self.assertNotIn('\n', r[len(b):])
+                self.assertNotIn('\n', r[len(b) :])
         self.assertIsNone(params.next('tar "open ', '/', []))
         self.assertIsNone(params.next('tar', '/', []))
 
@@ -496,8 +544,20 @@ class Next(Isolated):
         fish_data = self.tmp / 'fishdata'
         fish_data.mkdir()
         (fish_data / 'fish_history').write_text(common.format_fish_history([(h, ()) for h in self.HIST]))
-        args = ['--pid', str(os.getpid()), '--id', '7', '--cwd', common.enc('/tmp'),
-                '--buffer', common.enc('fakeup -i new.png '), '--fish-data', str(fish_data), '--real-name', 'fish']
+        args = [
+            '--pid',
+            str(os.getpid()),
+            '--id',
+            '7',
+            '--cwd',
+            common.enc('/tmp'),
+            '--buffer',
+            common.enc('fakeup -i new.png '),
+            '--fish-data',
+            str(fish_data),
+            '--real-name',
+            'fish',
+        ]
         buf = io.StringIO()
         with redirect_stdout(buf):
             params.main('next', args)
@@ -509,6 +569,7 @@ class Next(Isolated):
         def take(*a):
             got.append(res.read_text())
             res.write_text('')
+
         old = signal.signal(signal.SIGUSR1, take)
         (common.run_dir() / f'{os.getpid()}.rank').write_text('1\n')
         try:
@@ -526,6 +587,7 @@ class Next(Isolated):
         def take(*a):
             got.append(res.read_text())
             res.write_text('')
+
         old = signal.signal(signal.SIGUSR1, take)
         try:
             t = time.monotonic()
@@ -543,9 +605,26 @@ class Next(Isolated):
     def test_cli_compgen_after_ghost(self):
         buf = io.StringIO()
         with redirect_stdout(buf), mock.patch.object(params, '_fish_ships', return_value=False):
-            params.main('next', ['--pid', '1', '--id', '1', '--cwd', common.enc('/'),
-                                 '--buffer', common.enc('upscale -o '), '--no-completions', '--cmd-name', 'upscale',
-                                 '--cmd-kind', 'function', '--cmd-path', str(FIX / 'src' / 'upscale.fish')])
+            params.main(
+                'next',
+                [
+                    '--pid',
+                    '1',
+                    '--id',
+                    '1',
+                    '--cwd',
+                    common.enc('/'),
+                    '--buffer',
+                    common.enc('upscale -o '),
+                    '--no-completions',
+                    '--cmd-name',
+                    'upscale',
+                    '--cmd-kind',
+                    'function',
+                    '--cmd-path',
+                    str(FIX / 'src' / 'upscale.fish'),
+                ],
+            )
         kinds = [l.split('\t')[0] for l in buf.getvalue().splitlines()]
         self.assertEqual(kinds, ['ghost', 'compgen'])
         self.assertIn(common.enc('upscale -o ‹output›'), buf.getvalue())

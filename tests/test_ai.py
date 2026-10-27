@@ -24,6 +24,7 @@ import common
 class Fake(BaseHTTPRequestHandler):
     """Stand-in for ollama: canned reply (a list: one per request, the last one repeats), records every
     request body."""
+
     reply, status, delay, models, vram = '', 200, 0, [], 0
     requests, got_request = [], threading.Event()
 
@@ -36,8 +37,15 @@ class Fake(BaseHTTPRequestHandler):
         if isinstance(r, list):
             r = r[min(len(Fake.requests), len(r)) - 1]
         cut = r.endswith('…cut')
-        self._send(200, {'model': 'x', 'message': {'role': 'assistant', 'content': r.removesuffix('…cut')},
-                         'done': True, 'done_reason': 'length' if cut else 'stop'})
+        self._send(
+            200,
+            {
+                'model': 'x',
+                'message': {'role': 'assistant', 'content': r.removesuffix('…cut')},
+                'done': True,
+                'done_reason': 'length' if cut else 'stop',
+            },
+        )
 
     def do_GET(self):
         self._send(200, {'models': [{'name': n, 'size_vram': Fake.vram} for n in Fake.models]})
@@ -79,9 +87,13 @@ class AiTest(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.tmp, True)
         env = {f'XDG_{k}_HOME': str(self.tmp / k.lower()) for k in ('DATA', 'CACHE', 'CONFIG')}
-        env.update(XDG_RUNTIME_DIR=str(self.tmp / 'run'), HOME=str(self.tmp / 'home'),
-                   OLLAMA_HOST=f'127.0.0.1:{self.srv.server_port}',
-                   GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+        env.update(
+            XDG_RUNTIME_DIR=str(self.tmp / 'run'),
+            HOME=str(self.tmp / 'home'),
+            OLLAMA_HOST=f'127.0.0.1:{self.srv.server_port}',
+            GIT_CONFIG_GLOBAL=os.devnull,
+            GIT_CONFIG_NOSYSTEM='1',
+        )
         p = mock.patch.dict(os.environ, env)
         p.start()
         self.addCleanup(p.stop)
@@ -109,8 +121,16 @@ class AiTest(unittest.TestCase):
         self.addCleanup(p.stop)
 
     def args(self, buffer):
-        return ['--cwd', common.enc(str(self.cwd)), '--buffer', common.enc(buffer),
-                '--fish-data', str(self.fish_data), '--real-name', 'fish']
+        return [
+            '--cwd',
+            common.enc(str(self.cwd)),
+            '--buffer',
+            common.enc(buffer),
+            '--fish-data',
+            str(self.fish_data),
+            '--real-name',
+            'fish',
+        ]
 
     def run_ai(self, buffer, reply='', comps='', extra=()):
         """(kind, line), or None when it prints nothing. comps: what fish pipes in (complete -C)."""
@@ -135,7 +155,7 @@ class AiTest(unittest.TestCase):
         self.assertEqual(self.run_ai(' git com', 'git commit'), ('ghost', ' git commit'))
 
     def test_replace_otherwise(self):
-        self.assertEqual(self.run_ai('find todo', "grep -rn TODO ."), ('replace', 'grep -rn TODO .'))
+        self.assertEqual(self.run_ai('find todo', 'grep -rn TODO .'), ('replace', 'grep -rn TODO .'))
         self.assertEqual(self.run_ai('', 'make'), ('replace', 'make'))
 
     def test_cleanup(self):
@@ -159,7 +179,7 @@ class AiTest(unittest.TestCase):
     def test_control_chars_stripped(self):
         kind, line = self.run_ai('', 'ls \x1b[31m-la\x07\x9b\rrm -rf /')
         self.assertEqual(kind, 'replace')
-        self.assertFalse(any(ord(c) < 0x20 or 0x7f <= ord(c) <= 0x9f for c in line), repr(line))
+        self.assertFalse(any(ord(c) < 0x20 or 0x7F <= ord(c) <= 0x9F for c in line), repr(line))
         self.assertNotIn('rm -rf', line)
 
     def test_nothing_new_is_quiet(self):
@@ -170,8 +190,7 @@ class AiTest(unittest.TestCase):
         self.assertEqual(self.prefills(), [None, 'git status'])
 
     def prefills(self):
-        return [r['messages'][-1]['content'] if r['messages'][-1]['role'] == 'assistant' else None
-                for r in Fake.requests]
+        return [r['messages'][-1]['content'] if r['messages'][-1]['role'] == 'assistant' else None for r in Fake.requests]
 
     def test_retry_continues_the_line(self):
         self.assertEqual(self.run_ai('git sta', ['git sta', 'tus -s']), ('ghost', 'git status -s'))
@@ -180,17 +199,21 @@ class AiTest(unittest.TestCase):
         Fake.requests.clear()
         self.assertEqual(self.run_ai('git sta', ['git', 'sh pop']), ('ghost', 'git stash pop'))
         Fake.requests.clear()
-        self.assertEqual(self.run_ai('exiftool -all', ['exiftool', '= a.jpg']), ('ghost', 'exiftool -all= a.jpg'))
-        self.assertEqual(self.prefills(), [None, 'exiftool -all'])
-        Fake.requests.clear()
         self.assertEqual(self.run_ai('show disk usage', 'du -sh'), ('replace', 'du -sh'))
         self.assertEqual(len(Fake.requests), 1)
+
+    @unittest.skipUnless(shutil.which('exiftool'), 'exiftool missing')
+    def test_retry_continues_an_installed_command(self):
+        self.assertEqual(self.run_ai('exiftool -all', ['exiftool', '= a.jpg']), ('ghost', 'exiftool -all= a.jpg'))
+        self.assertEqual(self.prefills(), [None, 'exiftool -all'])
 
     def test_unfinished_answer_is_nothing(self):
         loop = 'exiftool -all= ' + '-tagsfromfile a.jpg -all= ' * 12
         self.assertIsNone(self.run_ai('exiftool -all= x.jpg', loop + '…cut'))
-        self.assertEqual(self.run_ai('exiftool -all= x.jpg', 'exiftool -all= x.jpg -overwrite_original'),
-                         ('ghost', 'exiftool -all= x.jpg -overwrite_original'))
+        self.assertEqual(
+            self.run_ai('exiftool -all= x.jpg', 'exiftool -all= x.jpg -overwrite_original'),
+            ('ghost', 'exiftool -all= x.jpg -overwrite_original'),
+        )
 
     def test_no_retry_for_plain_words(self):
         self.assertIsNone(self.run_ai('comprime la carpeta photos', 'comprime la carpeta photos'))
@@ -209,8 +232,9 @@ class AiTest(unittest.TestCase):
         self.assertEqual(len(Fake.requests), 1)
 
     def test_command_word_settled_first(self):
-        (self.fish_data / 'fish_history').write_text(common.format_fish_history(
-            [('waifu2x -s 2 -i a.png', ()), ('wait', ()), ('waifu2x -i b.png', ())], when=10))
+        (self.fish_data / 'fish_history').write_text(
+            common.format_fish_history([('waifu2x -s 2 -i a.png', ()), ('wait', ()), ('waifu2x -i b.png', ())], when=10)
+        )
         self.assertEqual(self.run_ai(' wai', ' -i c.png', comps='wait\n'), ('ghost', ' waifu2x -i c.png'))
         self.assertEqual(self.prefills(), ['waifu2x'])
         self.assertTrue(self.prompt().endswith('\nline: waifu2x '), self.prompt())
@@ -266,7 +290,7 @@ class AiTest(unittest.TestCase):
         Fake.models = [ai.model()]
         ai.main('ai', ['--warm', '1'] + self.args('')[:2])
         self.assertEqual(Fake.requests, [])
-        Fake.vram = 10 ** 9
+        Fake.vram = 10**9
         ai.main('ai', ['--warm', '1'] + self.args('')[:2])
         self.assertEqual(Fake.requests, [{'model': ai.model(), 'keep_alive': 0}])
 
@@ -276,11 +300,16 @@ class AiTest(unittest.TestCase):
         self.assertEqual(Fake.requests[-1]['options']['num_gpu'], 0)
 
     def test_context(self):
-        common.write_log([common.LogRec(1, 1, 0, str(self.cwd), 'make test'),
-                          common.LogRec(2, 1, 0, '/elsewhere', 'htop'),
-                          common.LogRec(3, 1, 0, str(self.cwd), 'deleted secret')])
-        (self.fish_data / 'fish_history').write_text(common.format_fish_history(
-            [('make test', ()), ('htop', ()), ('vim notes\nwq', ())], when=10))
+        common.write_log(
+            [
+                common.LogRec(1, 1, 0, str(self.cwd), 'make test'),
+                common.LogRec(2, 1, 0, '/elsewhere', 'htop'),
+                common.LogRec(3, 1, 0, str(self.cwd), 'deleted secret'),
+            ]
+        )
+        (self.fish_data / 'fish_history').write_text(
+            common.format_fish_history([('make test', ()), ('htop', ()), ('vim notes\nwq', ())], when=10)
+        )
         self.run_ai('', 'make')
         p = self.prompt()
         self.assertIn(f'cwd: {self.cwd}', p)
@@ -294,8 +323,17 @@ class AiTest(unittest.TestCase):
         self.assertNotIn('completions:', p)
 
     def test_habits(self):
-        hist = ['git push', 'git status', 'waifu2x -s 2 -i a.png', 'git status', 'git stash pop',
-                'waifu2x-ncnn-vulkan -i b.png', 'wait', 'git stash', 'git']
+        hist = [
+            'git push',
+            'git status',
+            'waifu2x -s 2 -i a.png',
+            'git status',
+            'git stash pop',
+            'waifu2x-ncnn-vulkan -i b.png',
+            'wait',
+            'git stash',
+            'git',
+        ]
         self.assertEqual(ai.habits('git sta', hist), ['git status', 'git stash', 'git stash pop', 'git push'])
         self.assertEqual(ai.habits('wai', hist), ['wait', 'waifu2x-ncnn-vulkan -i b.png', 'waifu2x -s 2 -i a.png'])
         self.assertEqual(ai.habits('wait ', hist), [])
@@ -303,8 +341,11 @@ class AiTest(unittest.TestCase):
         self.assertEqual(len(ai.habits('git', hist * 5, n=3)), 3)
 
     def test_habits_in_prompt(self):
-        (self.fish_data / 'fish_history').write_text(common.format_fish_history(
-            [('make -j8 install', ())] + [(f'echo {i}', ()) for i in range(10)] + [('make test', ())], when=10))
+        (self.fish_data / 'fish_history').write_text(
+            common.format_fish_history(
+                [('make -j8 install', ())] + [(f'echo {i}', ()) for i in range(10)] + [('make test', ())], when=10
+            )
+        )
         self.run_ai('make', 'make -j8')
         p = self.prompt()
         self.assertIn('history:\n  make -j8 install\n', p)
@@ -341,15 +382,20 @@ class AiTest(unittest.TestCase):
 
     def test_custom_command_hint(self):
         self.assertEqual(ai.cmd_hint('sethost ', 'sets the host', True), 'command: sethost — sets the host')
-        self.assertEqual(ai.cmd_hint('fakeview ', '', True),
-                         'command: fakeview (a custom command; use it as-is unless you know its flags)')
+        self.assertEqual(
+            ai.cmd_hint('fakeview ', '', True), 'command: fakeview (a custom command; use it as-is unless you know its flags)'
+        )
         self.assertEqual(ai.cmd_hint('nmap ', '', False), '')
         self.assertEqual(ai.cmd_hint('', '', True), '')
         self.run_ai('fakeview', 'fakeview', comps='fakeview\n')
         self.assertNotIn('command:', self.prompt())
         Fake.requests.clear()
-        self.run_ai('fakeview', 'fakeview --window', comps='fakeview\n',
-                    extra=['--cmd-custom', '1', '--cmd-desc', common.enc('shows the window')])
+        self.run_ai(
+            'fakeview',
+            'fakeview --window',
+            comps='fakeview\n',
+            extra=['--cmd-custom', '1', '--cmd-desc', common.enc('shows the window')],
+        )
         self.assertIn('command: fakeview — shows the window', self.prompt())
 
     def test_target_in_prompt(self):
@@ -358,17 +404,31 @@ class AiTest(unittest.TestCase):
         conf = self.tmp / 'config'
         conf.mkdir(parents=True, exist_ok=True)
         (conf / 'target').write_text('203.0.113.10\n')
-        with mock.patch.dict(os.environ, {'XDG_CONFIG_HOME': str(conf)}), \
-             mock.patch.object(ai.subprocess, 'run', return_value=mock.Mock(stdout='tun0  UNKNOWN  198.51.100.7/24\n')):
+        with (
+            mock.patch.dict(os.environ, {'XDG_CONFIG_HOME': str(conf)}),
+            mock.patch.object(ai.subprocess, 'run', return_value=mock.Mock(stdout='tun0  UNKNOWN  198.51.100.7/24\n')),
+        ):
             self.run_ai('nmap', 'nmap -sV 203.0.113.10')
         self.assertIn('target: 203.0.113.10  vpn: 198.51.100.7', self.prompt())
 
     def test_usual_on_empty_line(self):
-        (self.fish_data / 'fish_history').write_text(common.format_fish_history(
-            [('git push', ()), ('cargo build', ()), ('htop', ())] + [(f'echo {i}', ()) for i in range(8)], when=10))
-        (self.fish_data / 'fishsense_4242_history').write_text(common.format_fish_history(
-            [('tar cf ‹target.tar› ‹files›', ()), ('htop', ()), ('git push', ()), ('cargo build', ()),
-             ('git stash pop --ai-ghost', ())], when=10))
+        (self.fish_data / 'fish_history').write_text(
+            common.format_fish_history(
+                [('git push', ()), ('cargo build', ()), ('htop', ())] + [(f'echo {i}', ()) for i in range(8)], when=10
+            )
+        )
+        (self.fish_data / 'fishsense_4242_history').write_text(
+            common.format_fish_history(
+                [
+                    ('tar cf ‹target.tar› ‹files›', ()),
+                    ('htop', ()),
+                    ('git push', ()),
+                    ('cargo build', ()),
+                    ('git stash pop --ai-ghost', ()),
+                ],
+                when=10,
+            )
+        )
         hist = ['git push', 'cargo build', 'htop']
         self.assertEqual(ai.usual(str(self.fish_data), '4242', hist), ['cargo build', 'git push', 'htop'])
         self.assertEqual(ai.usual(str(self.fish_data), '4242', hist, n=1), ['cargo build'])
@@ -386,8 +446,9 @@ class AiTest(unittest.TestCase):
         for n in ('waifu2x-ncnn-vulkan', 'waitpid', 'zz'):
             (bin_ / n).touch(mode=0o755)
         with mock.patch.dict(os.environ, PATH=str(bin_)):
-            self.assertEqual(ai.names('waifu2x\nwait\n\x1b[31mwaix\n', 'wai'),
-                             ['waifu2x', 'wait', '[31mwaix', 'waifu2x-ncnn-vulkan', 'waitpid'])
+            self.assertEqual(
+                ai.names('waifu2x\nwait\n\x1b[31mwaix\n', 'wai'), ['waifu2x', 'wait', '[31mwaix', 'waifu2x-ncnn-vulkan', 'waitpid']
+            )
         self.run_ai('git checkout fe', 'git checkout feature/x', comps='feature/x\n')
         self.assertNotIn('feature/x', self.prompt())
 
@@ -414,10 +475,15 @@ class AiTest(unittest.TestCase):
         self.assertEqual(self.run_ai('ls', 'ls -la'), ('error', 'ollama is not responding; run: fishsense setup-ai'))
 
     def test_base_url(self):
-        cases = {'': 'http://127.0.0.1:11434', '0.0.0.0': 'http://0.0.0.0:11434',
-                 ':9999': 'http://127.0.0.1:9999', 'box:1234': 'http://box:1234',
-                 'http://box': 'http://box:80', 'https://box/ollama/': 'https://box:443/ollama',
-                 '[::1]:11434': 'http://[::1]:11434'}
+        cases = {
+            '': 'http://127.0.0.1:11434',
+            '0.0.0.0': 'http://0.0.0.0:11434',
+            ':9999': 'http://127.0.0.1:9999',
+            'box:1234': 'http://box:1234',
+            'http://box': 'http://box:80',
+            'https://box/ollama/': 'https://box:443/ollama',
+            '[::1]:11434': 'http://[::1]:11434',
+        }
         for raw, want in cases.items():
             with self.subTest(raw=raw), mock.patch.dict(os.environ, OLLAMA_HOST=raw):
                 self.assertEqual(ai.base_url(), want)
