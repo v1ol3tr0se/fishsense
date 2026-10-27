@@ -29,7 +29,7 @@ for the model part (optional):
 fishsense setup-ai
 ```
 
-that turns on ollama and downloads `qwen2.5-coder:3b`, it's around 2 gb. it'll ask for your password once
+that turns on ollama and downloads `qwen2.5-coder:14b` for when you're plugged in and `qwen2.5-coder:3b` for battery, so around 11 gb. it'll ask for your password once
 
 if something seems off `fishsense doctor` checks everything
 
@@ -41,7 +41,7 @@ if something seems off `fishsense doctor` checks everything
 - `shift+delete` on a suggestion deletes it from your history for good
 
 ### settings
-- `fishsense_ai_model` which ollama model to use (`qwen2.5-coder:3b` by default), set it with `set -U`
+- `fishsense_ai_model` which ollama model to use, set it with `set -U`. by default it's the 14b plugged in and the 3b on battery, if you pick one it uses that for both (and `setup-ai` only downloads that one)
 - `fishsense_ai_autospace` the space thing, on by default and only when plugged in. `set -U fishsense_ai_autospace 0` if you only want `ctrl+space`
 - `fishsense_ai_cmd` if you'd rather use your own command for `ctrl+space`. it gets the line in `FISHSENSE_BUFFER` and the folder in `FISHSENSE_CWD` and should print one command. space still uses the local model
 - `fishsense_disabled` turns the whole thing off
